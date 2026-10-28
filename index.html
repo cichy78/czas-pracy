@@ -1,0 +1,1518 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a5f9e">
+<meta name="description" content="Ewidencja czasu pracy – Ewidencja czasu pracy z kalendarzem, dietami i świętami Saksonii">
+<meta name="application-name" content="Ewidencja czasu">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ewidencja">
+<title>Ewidencja czasu</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg1:#0a2a4a; --bg2:#0d4a7a; --bg3:#1a6aa0;
+  --glass:rgba(0,20,40,0.55); --border:rgba(255,255,255,0.35);
+  --text:#f0f7ff; --muted:#a8c8e8; --accent:#4aa3e0;
+  --success:#5ad67a; --danger:#ff6b6b; --warning:#ffd166;
+  --urlaub:rgba(100,180,255,0.4); --krank:rgba(255,140,100,0.4);
+  --fza:rgba(180,140,255,0.4); --wolny:rgba(140,140,140,0.35);
+  --feiertag:rgba(255,200,50,0.35); --sat:rgba(80,120,200,0.25); --sun:rgba(160,80,120,0.3);
+}
+body.theme-xp {
+  --bg1:#3a6ea5; --bg2:#7ba2d0; --bg3:#c3d9f1;
+  --glass:rgba(255,255,255,0.75); --border:#003c74;
+  --text:#000; --muted:#333; --accent:#0055aa;
+  --success:#008000; --danger:#c00000; --warning:#a06000;
+}
+/* Stonowane motywy */
+body.theme-graphite {
+  --bg1:#2a2a2e; --bg2:#3a3a40; --bg3:#4a4a52;
+  --glass:rgba(40,40,45,0.75); --border:rgba(180,180,190,0.25);
+  --text:#e8e8ec; --muted:#a0a0a8; --accent:#8a9bb0;
+  --success:#6a9a7a; --danger:#c07070; --warning:#c0a060;
+}
+body.theme-olive {
+  --bg1:#2c3328; --bg2:#3d4636; --bg3:#4e5844;
+  --glass:rgba(45,50,40,0.75); --border:rgba(160,170,140,0.3);
+  --text:#e6ebe0; --muted:#a8b09a; --accent:#8a9a6e;
+  --success:#7a9a6a; --danger:#b07060; --warning:#b0a060;
+}
+body.theme-slate {
+  --bg1:#1e2a32; --bg2:#2a3a44; --bg3:#3a4a56;
+  --glass:rgba(30,42,50,0.75); --border:rgba(140,160,175,0.3);
+  --text:#e0e8ec; --muted:#98a8b0; --accent:#6a8a9a;
+  --success:#5a9a7a; --danger:#b07070; --warning:#b09860;
+}
+body.theme-sand {
+  --bg1:#3a342c; --bg2:#4a4338; --bg3:#5a5344;
+  --glass:rgba(55,50,42,0.75); --border:rgba(180,165,140,0.3);
+  --text:#f0ebe0; --muted:#b0a890; --accent:#a09070;
+  --success:#7a9a6a; --danger:#b07868; --warning:#c0a060;
+}
+body.theme-midnight {
+  --bg1:#12141c; --bg2:#1a1e2a; --bg3:#242836;
+  --glass:rgba(22,26,36,0.8); --border:rgba(100,110,140,0.3);
+  --text:#d8dce8; --muted:#888e9e; --accent:#6a7a9a;
+  --success:#5a8a6a; --danger:#a06060; --warning:#a09050;
+}
+body.theme-soft {
+  --bg1:#e8e4dc; --bg2:#d8d4cc; --bg3:#c8c4bc;
+  --glass:rgba(255,255,255,0.7); --border:rgba(100,100,100,0.25);
+  --text:#2a2a28; --muted:#5a5a55; --accent:#5a6a7a;
+  --success:#3a7a4a; --danger:#a04040; --warning:#8a6a20;
+}
+.quick-templates { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.quick-templates button { font-size:0.75rem; padding:6px 10px; }
+.week-bar { font-size:0.9rem; padding:8px 12px; margin-bottom:8px; color:var(--muted); }
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family:"Segoe UI",Tahoma,sans-serif;
+  background:linear-gradient(160deg,var(--bg1),var(--bg2),var(--bg3));
+  min-height:100vh; color:var(--text); overflow-x:hidden;
+}
+.glass {
+  background:var(--glass); backdrop-filter:blur(16px);
+  border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+/* SPLASH */
+#splash {
+  position:fixed; inset:0; z-index:9999;
+  background:linear-gradient(160deg,#0a2a4a 0%,#0d4a7a 40%,#1a6aa0 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity 0.5s;
+}
+#splash.hide { opacity:0; pointer-events:none; }
+.splash-bg {
+  position:absolute; inset:0; overflow:hidden;
+}
+.splash-bg::before {
+  content:''; position:absolute; width:200%; height:200%;
+  background:radial-gradient(circle at 30% 40%,rgba(74,163,224,0.3) 0%,transparent 50%),
+             radial-gradient(circle at 70% 60%,rgba(90,214,122,0.2) 0%,transparent 40%);
+  animation:float 12s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-5%,3%)} }
+.splash-content { position:relative; text-align:center; z-index:1; }
+.splash-content h1 { font-size:2rem; margin-bottom:8px; text-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.splash-content p { color:var(--muted); margin-bottom:40px; }
+#startBtn {
+  background:linear-gradient(180deg,#5ad67a,#2a9a4a);
+  border:none; color:#fff; font-size:1.3rem; font-weight:700;
+  padding:16px 48px; border-radius:50px; cursor:pointer;
+  box-shadow:0 4px 20px rgba(90,214,122,0.5);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+header {
+  padding:10px 14px; display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(180deg,rgba(10,95,158,0.9),rgba(4,58,99,0.85));
+  border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100;
+}
+header h1 { font-size:1.15rem; }
+.year-nav { display:flex; align-items:center; gap:6px; }
+.year-nav button { background:rgba(255,255,255,0.15); border:1px solid var(--border); color:var(--text); width:30px; height:30px; border-radius:8px; cursor:pointer; }
+nav.tabs { display:flex; overflow-x:auto; background:rgba(0,20,40,0.4); border-bottom:1px solid var(--border); }
+nav.tabs button {
+  flex:1; min-width:70px; padding:11px 6px; background:transparent; border:none;
+  color:var(--muted); font-size:0.8rem; cursor:pointer; border-bottom:3px solid transparent;
+}
+nav.tabs button.active { color:var(--text); border-bottom-color:var(--accent); background:rgba(74,163,224,0.15); }
+main { padding:10px; max-width:980px; margin:0 auto; padding-bottom:100px; }
+.panel { display:none; } .panel.active { display:block; }
+.home-card { text-align:center; padding:28px 16px; margin-bottom:12px; }
+.home-card h2 { font-size:1.5rem; margin-bottom:6px; }
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+.stat-box { padding:12px; text-align:center; }
+.stat-box .value { font-size:1.3rem; font-weight:700; color:var(--accent); }
+.stat-box .label { font-size:0.7rem; color:var(--muted); margin-top:3px; }
+.month-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; margin-bottom:10px; }
+.month-bar h3 { font-size:1.1rem; }
+.month-bar button { background:rgba(255,255,255,0.15); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:8px; cursor:pointer; }
+.days-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+.days-table th { background:rgba(10,95,158,0.55); padding:10px 6px; text-align:left; font-size:0.85rem; position:sticky; top:0; }
+.days-table td { padding:9px 6px; border-bottom:1px solid rgba(255,255,255,0.08); vertical-align:middle; }
+.days-table tr { cursor:pointer; }
+.days-table tr:hover { background:rgba(74,163,224,0.15); }
+.days-table tr.status-urlaub { background:var(--urlaub); }
+.days-table tr.status-krank { background:var(--krank); }
+.days-table tr.status-fza { background:var(--fza); }
+.days-table tr.status-wolny { background:var(--wolny); }
+.days-table tr.status-feiertag { background:var(--feiertag); }
+.days-table tr.day-saturday { background:var(--sat); }
+.days-table tr.day-sunday { background:var(--sun); }
+.hours { color:var(--success); font-weight:600; }
+.ot { color:var(--warning); font-weight:600; }
+.ot-neg { color:var(--danger); font-weight:600; }
+.day-name { font-size:0.75rem; color:var(--muted); display:block; }
+.holiday-note { font-size:0.7rem; color:#ffd666; display:block; }
+.icon-status { font-size:1.1rem; margin-right:4px; }
+.bottom-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:linear-gradient(180deg,rgba(4,58,99,0.95),rgba(2,30,50,0.98));
+  border-top:1px solid var(--border); padding:10px; display:flex; justify-content:space-around;
+  flex-wrap:wrap; gap:6px; z-index:90; font-size:0.8rem;
+}
+.bottom-bar .item { text-align:center; min-width:60px; }
+.bottom-bar .val { font-weight:700; font-size:0.95rem; color:var(--accent); }
+.btn {
+  background:linear-gradient(180deg,#4aa3e0,#0a5f9e); border:1px solid rgba(255,255,255,0.4);
+  color:#fff; padding:10px 16px; border-radius:8px; font-size:0.9rem; cursor:pointer;
+}
+.btn-secondary { background:linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08)); }
+.btn-danger { background:linear-gradient(180deg,#e05a5a,#a03030); }
+.btn-success { background:linear-gradient(180deg,#5ad67a,#2a9a4a); }
+.btn-sm { padding:6px 10px; font-size:0.8rem; }
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,10,30,0.7); backdrop-filter:blur(5px);
+  z-index:200; display:none; align-items:center; justify-content:center; padding:14px;
+}
+.modal-overlay.show { display:flex; }
+.modal { width:100%; max-width:440px; max-height:92vh; overflow-y:auto; padding:18px; }
+.modal h3 { margin-bottom:14px; font-size:1.2rem; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:4px; }
+.form-group input, .form-group select {
+  width:100%; padding:10px; background:rgba(0,20,40,0.6); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:1rem;
+}
+.form-row { display:flex; gap:10px; } .form-row .form-group { flex:1; }
+.status-btns { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.status-btns button {
+  flex:1; min-width:60px; padding:10px 4px; font-size:0.78rem; border-radius:8px;
+  border:1px solid var(--border); background:rgba(255,255,255,0.1); color:var(--text); cursor:pointer;
+}
+.status-btns button.active-status { background:linear-gradient(180deg,#4aa3e0,#0a5f9e); }
+.dieta-btns { display:flex; gap:6px; }
+.dieta-btns button {
+  flex:1; padding:12px; font-size:0.95rem; font-weight:600; border-radius:8px;
+  border:1px solid var(--border); background:rgba(255,255,255,0.1); color:var(--text); cursor:pointer;
+}
+.dieta-btns button.active-dieta { background:linear-gradient(180deg,#5ad67a,#2a9a4a); }
+.modal-actions { display:flex; gap:8px; margin-top:16px; } .modal-actions .btn { flex:1; }
+.settings-section { margin-bottom:18px; }
+.settings-section h4 { font-size:0.95rem; color:var(--accent); margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px; }
+.checkbox-row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+.checkbox-row input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); }
+.info-box { padding:12px; margin-bottom:10px; font-size:0.85rem; line-height:1.4; }
+.workdays-info { font-size:0.85rem; color:var(--muted); margin-bottom:8px; padding:8px 12px; }
+/* Time inputs – large & visible */
+input[type="time"] {
+  font-size: 1.35rem !important;
+  font-weight: 700;
+  padding: 14px 12px !important;
+  min-height: 52px;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  background: rgba(0,0,0,0.35);
+  border: 2px solid var(--accent) !important;
+  border-radius: 12px !important;
+  width: 100%;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.5);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  opacity: 1;
+}
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.time-row .form-group label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+  display: block;
+}
+.time-row .form-group {
+  margin-bottom: 0;
+}
+/* Pause as HH:MM */
+.pause-hm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pause-hm input[type="number"] {
+  width: 70px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px 6px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.35);
+  color: var(--text);
+}
+.pause-hm span.sep { font-size: 1.4rem; font-weight: 700; }
+
+.pause-section { border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:8px 10px; margin-bottom:12px; background:rgba(0,0,0,0.15); }
+.pause-header { display:flex; justify-content:space-between; cursor:pointer; }
+.pause-body { display:none; margin-top:10px; } .pause-body.open { display:block; }
+/* Calendar */
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.cal-day {
+  aspect-ratio:1; border-radius:8px; padding:4px; font-size:0.75rem;
+  background:rgba(0,0,0,0.2); text-align:center; cursor:pointer; position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+}
+.cal-day .num { font-weight:600; }
+.cal-day.holiday { background:var(--feiertag); }
+.cal-day.ferien { background:rgba(100,200,150,0.3); }
+.cal-day.today { outline:2px solid var(--accent); }
+.cal-day.has-event::after { content:'•'; color:var(--warning); font-size:1rem; line-height:0.5; }
+.cal-head { font-size:0.7rem; text-align:center; color:var(--muted); padding:4px; }
+.author { text-align:center; font-size:0.8rem; color:var(--muted); margin-top:20px; padding:10px; }
+.hide-col { display:none !important; }
+</style>
+</head>
+<body>
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-bg"></div>
+  <div class="splash-content">
+    <div style="font-size:4rem;margin-bottom:12px">⏱</div>
+    <h1 id="splashTitle">Ewidencja czasu</h1>
+    <p id="splashSub">Ewidencja czasu pracy</p>
+    <button id="startBtn">START</button>
+  </div>
+</div>
+
+<header>
+  <h1 id="appTitle">Ewidencja czasu</h1>
+  <div class="year-nav">
+    <button type="button" id="prevYear" onclick="goPrevYear()" style="min-width:40px;min-height:40px;cursor:pointer">‹</button>
+    <span id="currentYear">2026</span>
+    <button type="button" id="nextYear" onclick="goNextYear()" style="min-width:40px;min-height:40px;cursor:pointer">›</button>
+  </div>
+</header>
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="home" data-i18n="tab_home">Start</button>
+  <button class="tab-btn" data-tab="days" data-i18n="tab_days">Dni</button>
+  <button class="tab-btn" data-tab="calendar" data-i18n="tab_cal">Kalendarz</button>
+  <button class="tab-btn" data-tab="summary" data-i18n="tab_year">Rok</button>
+  <button class="tab-btn" data-tab="settings" data-i18n="tab_set">Ustawienia</button>
+</nav>
+<main>
+  <!-- HOME -->
+  <div id="panel-home" class="panel active">
+    <div class="glass home-card">
+      <h2 id="welcomeName">Witaj</h2>
+      <p class="subtitle" id="workplaceLabel" style="color:var(--muted)">Miejsce pracy</p>
+      <div class="stats-grid">
+        <div class="glass stat-box"><div class="value" id="homeHours">0:00</div><div class="label" data-i18n="hours_year">Godziny (rok)</div></div>
+        <div class="glass stat-box"><div class="value" id="homeOT">0:00</div><div class="label" data-i18n="ot">Nadgodziny</div></div>
+        <div class="glass stat-box"><div class="value" id="homeMoney">0,00 €</div><div class="label" data-i18n="earn">Zarobek</div></div>
+        <div class="glass stat-box"><div class="value" id="homeDieta">0,00 €</div><div class="label" data-i18n="dieta">Diety</div></div>
+      </div>
+      <div class="glass stat-box" style="margin-top:10px"><div class="value" id="homeTotal">0,00 €</div><div class="label" data-i18n="total">Razem do wypłaty</div></div>
+    </div>
+  </div>
+
+  <!-- DNI -->
+  <div id="panel-days" class="panel">
+    <div class="glass month-bar">
+      <button type="button" id="prevMonth" onclick="goPrevMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">‹</button>
+      <h3 id="monthLabel">Październik 2026</h3>
+      <button type="button" id="nextMonth" onclick="goNextMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">›</button>
+    </div>
+    <div class="glass workdays-info" id="workdaysInfo"></div>
+    <div class="glass week-bar" id="weekBar"></div>
+    <div class="glass" style="overflow-x:auto;padding:8px">
+      <table class="days-table">
+        <thead><tr>
+          <th data-col="date" data-i18n="col_date">Data</th>
+          <th data-col="start" data-i18n="col_start">Start</th>
+          <th data-col="end" data-i18n="col_end">Koniec</th>
+          <th data-col="pause" data-i18n="col_pause">Przerwa</th>
+          <th data-col="hours" data-i18n="col_hours">Godz.</th>
+          <th data-col="ot" data-i18n="col_ot">Nadg.</th>
+          <th data-col="dieta" data-i18n="col_dieta">Dieta</th>
+        </tr></thead>
+        <tbody id="daysBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;text-align:center"><button class="btn" id="addDayBtn" data-i18n="add_day">+ Dodaj dzień</button></div>
+  </div>
+
+  <!-- KALENDARZ -->
+  <div id="panel-calendar" class="panel">
+    <div class="glass month-bar">
+      <button type="button" id="calPrev" onclick="goPrevMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">‹</button>
+      <h3 id="calLabel">Październik 2026</h3>
+      <button type="button" id="calNext" onclick="goNextMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">›</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button type="button" class="btn btn-sm" id="calViewMonth" onclick="setCalView('month')" data-i18n="view_month">Miesiąc</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="calViewWeek" onclick="setCalView('week')" data-i18n="view_week">Tydzień</button>
+      <button class="btn btn-sm btn-secondary" id="calAddEvent" data-i18n="add_event">+ Wydarzenie</button>
+    </div>
+    <div class="glass" style="padding:10px">
+      <div class="cal-grid" id="calHead"></div>
+      <div class="cal-grid" id="calBody" style="margin-top:4px"></div>
+    </div>
+    <div class="glass info-box" style="margin-top:10px" id="calLegend">
+      <span style="background:var(--feiertag);padding:2px 6px;border-radius:4px">Święto</span>
+      <span style="background:rgba(100,200,150,0.3);padding:2px 6px;border-radius:4px;margin-left:6px">Ferie</span>
+      <span style="margin-left:6px">• własne wydarzenie</span>
+    </div>
+    <div id="calDayDetail" class="glass" style="padding:12px;margin-top:10px;display:none"></div>
+  </div>
+
+  <!-- ROK -->
+  <div id="panel-summary" class="panel">
+    <div class="glass" style="padding:12px">
+      <h3 style="margin-bottom:12px"><span data-i18n="year_sum">Podsumowanie roku</span> <span id="summaryYear"></span></h3>
+      <table style="width:100%;font-size:0.85rem;border-collapse:collapse" id="summaryTable">
+        <thead><tr><th data-i18n="month">Miesiąc</th><th>Godz.</th><th>Nadg.</th><th>Diety</th><th data-i18n="earn">Zarobek</th></tr></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" id="exportExcelBtn" data-i18n="export_xlsx">Eksport Excel</button>
+      <button class="btn btn-secondary" id="exportJsonBtn" data-i18n="export_json">Zapisz JSON</button>
+      <button class="btn btn-secondary" id="importJsonBtn" data-i18n="import_json">Wczytaj JSON</button>
+      <input type="file" id="importFile" accept=".json,.xlsx,.xls" style="display:none">
+    </div>
+  </div>
+
+  <!-- USTAWIENIA -->
+  <div id="panel-settings" class="panel">
+    <div class="glass" style="padding:16px">
+      <div class="settings-section">
+        <h4 data-i18n="personal">Dane osobowe</h4>
+        <div class="form-group"><label data-i18n="app_name">Nazwa aplikacji</label><input type="text" id="setAppName"></div>
+        <div class="form-group"><label data-i18n="first_name">Imię</label><input type="text" id="setFirstName"></div>
+        <div class="form-group"><label data-i18n="last_name">Nazwisko</label><input type="text" id="setLastName"></div>
+        <div class="form-group"><label data-i18n="workplace">Miejsce pracy</label><input type="text" id="setWorkplace"></div>
+        <div class="form-group"><label data-i18n="rate">Stawka (€/h)</label><input type="number" id="setRate" step="0.01" value="15"></div>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="lang">Język / Sprache</h4>
+        <select id="setLang" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="pl">Polski</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="theme">Motyw kolorystyczny</h4>
+        <select id="setTheme" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="aero">Windows Aero (Vista)</option>
+          <option value="xp">Windows XP</option>
+          <option value="graphite">Grafit (stonowany)</option>
+          <option value="olive">Oliwkowy (stonowany)</option>
+          <option value="slate">Łupkowy niebieski</option>
+          <option value="sand">Piaskowy</option>
+          <option value="midnight">Północny (ciemny)</option>
+          <option value="soft">Miękki jasny</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="columns">Kolumny w zakładce Dni</h4>
+        <div class="checkbox-row"><input type="checkbox" id="colStart" checked><label>Start</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colEnd" checked><label>Koniec</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colPause" checked><label data-i18n="col_pause">Przerwa</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colHours" checked><label data-i18n="col_hours">Godziny</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colOt" checked><label data-i18n="col_ot">Nadgodziny</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colDieta" checked><label data-i18n="col_dieta">Dieta</label></div>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="auto_pause">Automatyczna przerwa (ArbZG)</h4>
+        <div class="checkbox-row"><input type="checkbox" id="setAutoPause" checked><label data-i18n="enable_auto">Włącz auto-przerwę</label></div>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="cloud">Chmura / Export-Import</h4>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:8px" data-i18n="cloud_info">
+          Zapisz JSON lub Excel i umieść w Google Drive. Aby przywrócić – wczytaj plik.
+        </p>
+        <button class="btn btn-sm" id="setExportExcel" data-i18n="export_xlsx">Eksport Excel</button>
+        <button class="btn btn-sm btn-secondary" id="setExportJson" data-i18n="export_json">Zapisz JSON</button>
+        <button class="btn btn-sm btn-secondary" id="setImport" data-i18n="import_json">Wczytaj plik</button>
+        <button class="btn btn-sm btn-secondary" id="setExportPdf" style="margin-top:6px">Eksport PDF (miesiąc)</button>
+        <button class="btn btn-sm btn-secondary" id="setBackupNow" style="margin-top:6px">Backup JSON teraz</button>
+      </div>
+      <div class="settings-section">
+        <h4>Przypomnienia</h4>
+        <div class="checkbox-row"><input type="checkbox" id="setRemind"><label>Przypominaj o brakujących wpisach</label></div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:4px">Przy starcie aplikacji sprawdza wczorajszy dzień roboczy.</p>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="data">Dane</h4>
+        <button class="btn btn-danger btn-sm" id="clearDataBtn" data-i18n="clear">Usuń wszystkie wpisy</button>
+      </div>
+      <button class="btn" id="saveSettingsBtn" style="width:100%;margin-top:8px" data-i18n="save">Zapisz</button>
+      <div class="author">Autor: Cichocki Tomasz</div>
+    </div>
+  </div>
+</main>
+
+<div class="bottom-bar">
+  <div class="item"><div class="val" id="barHours">0:00 h</div><div data-i18n="hours">Godziny</div></div>
+  <div class="item"><div class="val" id="barOT">0:00 h</div><div data-i18n="ot_short">Nadgodz.</div></div>
+  <div class="item"><div class="val" id="barDieta">0,00 €</div><div data-i18n="dieta">Diety</div></div>
+  <div class="item"><div class="val" id="barTotal">0,00 €</div><div data-i18n="total_short">Razem</div></div>
+</div>
+
+<!-- DAY MODAL -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal glass">
+    <h3 id="modalTitle">Edycja dnia</h3>
+    <div class="form-group"><label data-i18n="col_date">Data</label><input type="date" id="editDate"></div>
+    <div class="status-btns" id="statusBtns">
+      <button data-status="work">🛠️ Praca</button>
+      <button data-status="urlaub">🌴 Urlop</button>
+      <button data-status="krank">🤒 Chorobowe</button>
+      <button data-status="fza">🔄 FZA</button>
+      <button data-status="wolny">🏠 Wolny</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <button type="button" class="btn btn-sm btn-secondary" id="btnCopyYesterday" style="width:100%">📋 Kopiuj poprzedni dzień roboczy</button>
+    </div>
+    <div id="workFields">
+      <div class="quick-templates" id="shiftTemplates">
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="06:00-14:30">6:00–14:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="07:00-15:30">7:00–15:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="08:00-16:30">8:00–16:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="14:00-22:00">14:00–22:00</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="22:00-06:00">22:00–6:00</button>
+      </div>
+      <div class="form-row">
+        <div class="time-row">
+          <div class="form-group">
+            <label data-i18n="col_start">⏱ Start</label>
+            <input type="time" id="editStart" value="06:00" step="60">
+          </div>
+          <div class="form-group">
+            <label data-i18n="col_end">⏱ Koniec</label>
+            <input type="time" id="editEnd" value="15:30" step="60">
+          </div>
+        </div>
+      </div>
+      <div class="pause-section">
+        <div class="pause-header" id="pauseToggle">
+          <span>Przerwa: <strong id="pauseSummary">0:00</strong></span>
+          <span style="color:var(--accent)" id="pauseToggleText">▼</span>
+        </div>
+        <div class="pause-body" id="pauseBody">
+          <div class="form-group">
+            <label>Czas przerwy (godz : min)</label>
+            <div class="pause-hm">
+              <input type="number" id="editPauseH" min="0" max="12" value="0" title="Godziny">
+              <span class="sep">:</span>
+              <input type="number" id="editPauseM" min="0" max="59" value="0" title="Minuty">
+            </div>
+            <input type="hidden" id="editPause" value="0">
+          </div>
+          <div class="checkbox-row" style="margin-top:8px"><input type="checkbox" id="editAutoPause"><label>Auto ArbZG (&gt;6h → 30 min, &gt;9h → 45 min)</label></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label data-i18n="col_dieta">Dieta</label>
+      <div class="dieta-btns" id="dietaBtns">
+        <button data-dieta="0">0 €</button>
+        <button data-dieta="14">14 €</button>
+        <button data-dieta="28">28 €</button>
+      </div>
+    </div>
+    <div class="form-group"><label data-i18n="note">Notatka</label><input type="text" id="editNote"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteDayBtn" data-i18n="delete">Usuń</button>
+      <button class="btn btn-secondary" id="cancelDayBtn" data-i18n="cancel">Anuluj</button>
+      <button class="btn btn-success" id="saveDayBtn" data-i18n="save">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal glass">
+    <h3 id="evModalTitle">Własne wydarzenie</h3>
+    <div class="form-group"><label data-i18n="col_date">Data</label><input type="date" id="evDate"></div>
+    <div class="form-group"><label data-i18n="title">Tytuł</label><input type="text" id="evTitle" placeholder="np. Spotkanie, Wizyta..."></div>
+    <div class="form-group"><label data-i18n="desc">Opis</label><input type="text" id="evDesc" placeholder="Opcjonalnie"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="evDelete" style="display:none">Usuń</button>
+      <button class="btn btn-secondary" id="evCancel" data-i18n="cancel">Anuluj</button>
+      <button class="btn btn-success" id="evSave" data-i18n="save">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'ewidencja_v4';
+const i18n = {
+  pl: {
+    tab_home:'Start', tab_days:'Dni', tab_cal:'Kalendarz', tab_year:'Rok', tab_set:'Ustawienia',
+    hours_year:'Godziny (rok)', ot:'Nadgodziny', earn:'Zarobek', dieta:'Diety', total:'Razem do wypłaty',
+    col_date:'Data', col_start:'Start', col_end:'Koniec', col_pause:'Przerwa', col_hours:'Godz.', col_ot:'Nadg.', col_dieta:'Dieta',
+    add_day:'+ Dodaj dzień', year_sum:'Podsumowanie roku', month:'Miesiąc', export_xlsx:'Eksport Excel',
+    export_json:'Zapisz JSON', import_json:'Wczytaj plik', personal:'Dane osobowe', app_name:'Nazwa aplikacji',
+    first_name:'Imię', last_name:'Nazwisko', workplace:'Miejsce pracy', rate:'Stawka (€/h)',
+    lang:'Język', theme:'Motyw kolorystyczny', columns:'Kolumny w zakładce Dni', auto_pause:'Automatyczna przerwa (ArbZG)',
+    enable_auto:'Włącz auto-przerwę', cloud:'Chmura / Export-Import', cloud_info:'Zapisz JSON lub Excel i umieść w Google Drive. Aby przywrócić – wczytaj plik.',
+    data:'Dane', clear:'Usuń wszystkie wpisy', save:'Zapisz ustawienia', hours:'Godziny', ot_short:'Nadgodz.', total_short:'Razem',
+    note:'Notatka', delete:'Usuń', cancel:'Anuluj', view_month:'Miesiąc', view_week:'Tydzień', add_event:'+ Wydarzenie',
+    title:'Tytuł', desc:'Opis'
+  },
+  de: {
+    tab_home:'Start', tab_days:'Tage', tab_cal:'Kalender', tab_year:'Jahr', tab_set:'Einstellungen',
+    hours_year:'Stunden (Jahr)', ot:'Überstunden', earn:'Verdienst', dieta:'Spesen', total:'Gesamtauszahlung',
+    col_date:'Datum', col_start:'Beginn', col_end:'Ende', col_pause:'Pause', col_hours:'Std.', col_ot:'Üstd.', col_dieta:'Spesen',
+    add_day:'+ Tag hinzufügen', year_sum:'Jahresübersicht', month:'Monat', export_xlsx:'Excel exportieren',
+    export_json:'JSON speichern', import_json:'Datei laden', personal:'Persönliche Daten', app_name:'App-Name',
+    first_name:'Vorname', last_name:'Nachname', workplace:'Arbeitsort', rate:'Stundensatz (€/h)',
+    lang:'Sprache', theme:'Farbschema', columns:'Spalten in Tage', auto_pause:'Automatische Pause (ArbZG)',
+    enable_auto:'Auto-Pause aktivieren', cloud:'Cloud / Export-Import', cloud_info:'JSON oder Excel speichern und in Google Drive ablegen. Zum Wiederherstellen Datei laden.',
+    data:'Daten', clear:'Alle Einträge löschen', save:'Einstellungen speichern', hours:'Stunden', ot_short:'Überstd.', total_short:'Gesamt',
+    note:'Notiz', delete:'Löschen', cancel:'Abbrechen', view_month:'Monat', view_week:'Woche', add_event:'+ Ereignis',
+    title:'Titel', desc:'Beschreibung'
+  }
+};
+
+let state = {
+  year: new Date().getFullYear(), month: new Date().getMonth(),
+  settings: {
+    appName:'Ewidencja czasu', firstName:'', lastName:'', workplace:'', rate:15,
+    autoPause:true, lang:'pl', theme:'aero',
+    cols:{ start:true, end:true, pause:true, hours:true, ot:true, dieta:true }
+  },
+  days:{}, events:{}
+};
+
+const DAY_NAMES = { pl:['Nd','Pn','Wt','Śr','Cz','Pt','So'], de:['So','Mo','Di','Mi','Do','Fr','Sa'] };
+const DAY_FULL = { pl:['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'], de:['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'] };
+const MONTHS = {
+  pl:['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'],
+  de:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+};
+const STATUS_ICON = { work:'🛠️', urlaub:'🌴', krank:'🤒', fza:'🔄', wolny:'🏠' };
+
+const FIXED_HOLIDAYS = {
+  '01-01':{pl:'Nowy Rok',de:'Neujahr'}, '05-01':{pl:'Święto Pracy',de:'Tag der Arbeit'},
+  '10-03':{pl:'Dzień Jedności Niemiec',de:'Tag der Deutschen Einheit'},
+  '10-31':{pl:'Dzień Reformacji',de:'Reformationstag'},
+  '12-25':{pl:'1. Boże Narodzenie',de:'1. Weihnachtstag'}, '12-26':{pl:'2. Boże Narodzenie',de:'2. Weihnachtstag'}
+};
+
+// School holidays Sachsen (approx known periods + extensible)
+const FERIEN = [
+  {from:'2026-02-09',to:'2026-02-21',name:{pl:'Ferie zimowe',de:'Winterferien'}},
+  {from:'2026-04-03',to:'2026-04-10',name:{pl:'Ferie wielkanocne',de:'Osterferien'}},
+  {from:'2026-07-04',to:'2026-08-14',name:{pl:'Ferie letnie',de:'Sommerferien'}},
+  {from:'2026-10-12',to:'2026-10-24',name:{pl:'Ferie jesienne',de:'Herbstferien'}},
+  {from:'2026-12-23',to:'2027-01-02',name:{pl:'Ferie świąteczne',de:'Weihnachtsferien'}},
+  {from:'2027-02-08',to:'2027-02-19',name:{pl:'Ferie zimowe',de:'Winterferien'}},
+  {from:'2027-03-26',to:'2027-04-02',name:{pl:'Ferie wielkanocne',de:'Osterferien'}},
+  {from:'2027-05-15',to:'2027-05-18',name:{pl:'Ferie zielone',de:'Pfingstferien'}},
+  {from:'2027-07-10',to:'2027-08-20',name:{pl:'Ferie letnie',de:'Sommerferien'}},
+  {from:'2027-10-11',to:'2027-10-23',name:{pl:'Ferie jesienne',de:'Herbstferien'}},
+  {from:'2027-12-23',to:'2028-01-01',name:{pl:'Ferie świąteczne',de:'Weihnachtsferien'}}
+];
+
+function t(key){ return (i18n[state.settings.lang]||i18n.pl)[key]||key; }
+function pad(n){ return String(n).padStart(2,'0'); }
+function toLocalDateStr(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
+function formatHours(h){
+  if(h===undefined||h===null) return '–';
+  const sign = h<0?'-':'';
+  const abs = Math.abs(h);
+  const totalMin = Math.round(abs*60);
+  return sign + Math.floor(totalMin/60) + ':' + pad(totalMin%60);
+}
+function formatPause(mins){
+  mins=Math.round(+mins||0);
+  const h=Math.floor(mins/60), m=mins%60;
+  return h+':'+String(m).padStart(2,'0');
+}
+function formatMoney(n){ return n.toFixed(2).replace('.',',')+' €'; }
+
+function easterDate(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31), day=((h+l-7*m+114)%31)+1;
+  return new Date(y,month-1,day);
+}
+function getSachsenHolidays(year){
+  const map={};
+  for(const [md,names] of Object.entries(FIXED_HOLIDAYS)) map[year+'-'+md]=names;
+  const easter=easterDate(year);
+  const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+  const fmt=d=>toLocalDateStr(d.getFullYear(),d.getMonth(),d.getDate());
+  map[fmt(add(easter,-2))]={pl:'Wielki Piątek',de:'Karfreitag'};
+  map[fmt(add(easter,1))]={pl:'Poniedziałek Wielkanocny',de:'Ostermontag'};
+  map[fmt(add(easter,39))]={pl:'Wniebowstąpienie',de:'Christi Himmelfahrt'};
+  map[fmt(add(easter,50))]={pl:'Zielone Świątki',de:'Pfingstmontag'};
+  let bus=new Date(year,10,23);
+  while(bus.getDay()!==3) bus.setDate(bus.getDate()-1);
+  map[fmt(bus)]={pl:'Dzień Pokuty',de:'Buß- und Bettag'};
+  return map;
+}
+let holidayCache={};
+function isHoliday(ds){
+  const y=+ds.slice(0,4);
+  if(!holidayCache[y]) holidayCache[y]=getSachsenHolidays(y);
+  return holidayCache[y][ds]||null;
+}
+function isFerien(ds){
+  for(const f of FERIEN){
+    if(ds>=f.from && ds<=f.to) return f.name;
+  }
+  return null;
+}
+
+function loadState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){ const p=JSON.parse(raw); state={...state,...p}; if(!state.days)state.days={}; if(!state.events)state.events={}; if(!state.settings.cols)state.settings.cols={start:true,end:true,pause:true,hours:true,ot:true,dieta:true}; }
+  }catch(e){}
+}
+function saveState(){ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }
+
+function timeToMin(t){ if(!t)return 0; const[h,m]=t.split(':').map(Number); return h*60+m; }
+function calcDay(day){
+  if(!day) return {hours:0,ot:0,dieta:0};
+  if(day.status==='urlaub'||day.status==='krank'||day.status==='fza') return {hours:8,ot:0,dieta:day.dieta||0};
+  if(day.status==='wolny') return {hours:0,ot:0,dieta:0};
+  let start=timeToMin(day.start||'00:00'), end=timeToMin(day.end||'00:00');
+  if(end<start) end+=24*60;
+  let gross=end-start, pause=day.pause||0;
+  if(day.autoPause!==false && state.settings.autoPause){
+    if(gross>9*60) pause=Math.max(pause,45);
+    else if(gross>6*60) pause=Math.max(pause,30);
+  }
+  const net=Math.max(0,gross-pause)/60;
+  const ot=net-8; // can be negative
+  return {hours:net, ot, dieta:day.dieta||0, pauseUsed:pause};
+}
+
+function getMonthDays(y,m){
+  const days=[], last=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=last;d++) days.push(toLocalDateStr(y,m,d));
+  return days;
+}
+function countWorkdays(y,m){
+  let c=0;
+  for(const ds of getMonthDays(y,m)){
+    const wd=new Date(ds+'T12:00:00').getDay();
+    if(wd===0||wd===6) continue;
+    if(isHoliday(ds)) continue;
+    c++;
+  }
+  return c;
+}
+
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    // Nie nadpisuj elementów, które mają dzieci-elementy (np. span z id)
+    if(el.children.length > 0) return;
+    const k=el.getAttribute('data-i18n');
+    if(t(k)) el.textContent=t(k);
+  });
+}
+function applyTheme(){
+  const t = state.settings.theme || 'aero';
+  document.body.className = document.body.className
+    .split(/\s+/)
+    .filter(c => !c.startsWith('theme-'))
+    .join(' ');
+  if(t && t !== 'aero') document.body.classList.add('theme-' + t);
+}
+function applyCols(){
+  const c=state.settings.cols;
+  document.querySelectorAll('[data-col]').forEach(th=>{
+    const col=th.getAttribute('data-col');
+    if(col==='date') return;
+    th.classList.toggle('hide-col', !c[col]);
+  });
+}
+
+function renderAll(){
+  try {
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('appTitle', state.settings.appName || 'Ewidencja czasu');
+    set('currentYear', state.year);
+    set('summaryYear', state.year);
+    try { applyLang(); } catch(e){}
+    try { applyTheme(); } catch(e){}
+    try { applyCols(); } catch(e){}
+    try { renderHome(); } catch(e){}
+    try { renderDays(); } catch(e){ console.error('renderDays', e); }
+    try { renderSummary(); } catch(e){}
+    try { renderBottom(); } catch(e){}
+    try { renderCalendar(); } catch(e){ console.error('renderCalendar', e); }
+    try { applySettingsForm(); } catch(e){}
+    try { if(typeof bindAllEvents === 'function') bindAllEvents(); } catch(e){}
+  } catch(e) {
+    console.error('renderAll error', e);
+  }
+}
+
+function renderHome(){
+  const name=[state.settings.firstName,state.settings.lastName].filter(Boolean).join(' ')||'Witaj';
+  document.getElementById('welcomeName').textContent=name;
+  document.getElementById('workplaceLabel').textContent=state.settings.workplace||'';
+  let th=0,tot=0,td=0;
+  for(const[ds,day] of Object.entries(state.days)){
+    if(!ds.startsWith(String(state.year))) continue;
+    const c=calcDay(day); th+=c.hours; tot+=Math.max(0,c.ot); td+=c.dieta;
+  }
+  const money=th*(state.settings.rate||0);
+  document.getElementById('homeHours').textContent=formatHours(th);
+  document.getElementById('homeOT').textContent=formatHours(tot);
+  document.getElementById('homeMoney').textContent=formatMoney(money);
+  document.getElementById('homeDieta').textContent=formatMoney(td);
+  document.getElementById('homeTotal').textContent=formatMoney(money+td);
+}
+
+function renderDays(){
+  const lang=state.settings.lang || 'pl';
+  const ml = document.getElementById('monthLabel');
+  if(ml) ml.textContent = (MONTHS[lang] || MONTHS.pl)[state.month] + ' ' + state.year;
+  const needed=countWorkdays(state.year,state.month);
+  let capt=0;
+  const pref=`${state.year}-${pad(state.month+1)}`;
+  for(const ds of Object.keys(state.days)) if(ds.startsWith(pref)) capt++;
+  document.getElementById('workdaysInfo').textContent=`Dni robocze: ${needed} | Zarejestrowane: ${capt}`;
+  try{ renderWeekBar(); }catch(e){}
+
+  const tbody=document.getElementById('daysBody');
+  tbody.innerHTML='';
+  const cols=state.settings.cols;
+  for(const ds of getMonthDays(state.year,state.month)){
+    const day=state.days[ds];
+    const hol=isHoliday(ds);
+    const d=new Date(ds+'T12:00:00');
+    const wd=d.getDay();
+    const tr=document.createElement('tr');
+    if(day){
+      if(day.status==='urlaub') tr.classList.add('status-urlaub');
+      else if(day.status==='krank') tr.classList.add('status-krank');
+      else if(day.status==='fza') tr.classList.add('status-fza');
+      else if(day.status==='wolny') tr.classList.add('status-wolny');
+    }
+    if(hol) tr.classList.add('status-feiertag');
+    else if(wd===6) tr.classList.add('day-saturday');
+    else if(wd===0) tr.classList.add('day-sunday');
+
+    const c=calcDay(day);
+    const icon=day? (STATUS_ICON[day.status]||'') : '';
+    const holName=hol? hol[lang]||hol.pl : '';
+    let start=day?.start||'–', end=day?.end||'–', pause=day?(c.pauseUsed??day.pause??'–'):'–';
+    if(day&&['urlaub','krank','fza','wolny'].includes(day.status)){ start=end=pause='–'; }
+
+    const otClass = c.ot<0 ? 'ot-neg' : 'ot';
+    const otDisp = (c.hours||c.ot) ? formatHours(c.ot) : '–';
+
+    tr.innerHTML=`
+      <td data-col="date"><span class="icon-status">${icon}</span><strong>${ds.slice(8)}.${ds.slice(5,7)}</strong>
+        <span class="day-name">${DAY_NAMES[lang][wd]}</span>
+        ${holName?`<span class="holiday-note">${holName}</span>`:''}</td>
+      <td data-col="start" class="${cols.start?'':'hide-col'}">${start}</td>
+      <td data-col="end" class="${cols.end?'':'hide-col'}">${end}</td>
+      <td data-col="pause" class="${cols.pause?'':'hide-col'}">${pause==='–'?'–':formatPause(pause)}</td>
+      <td data-col="hours" class="hours ${cols.hours?'':'hide-col'}">${c.hours?formatHours(c.hours):'–'}</td>
+      <td data-col="ot" class="${otClass} ${cols.ot?'':'hide-col'}">${otDisp}</td>
+      <td data-col="dieta" class="${cols.dieta?'':'hide-col'}">${c.dieta?c.dieta+' €':'–'}</td>`;
+    tr.onclick=()=>openDayModal(ds);
+    tbody.appendChild(tr);
+  }
+}
+
+function renderBottom(){
+  let h=0,ot=0,d=0;
+  const pref=`${state.year}-${pad(state.month+1)}`;
+  for(const[ds,day] of Object.entries(state.days)){
+    if(!ds.startsWith(pref)) continue;
+    const c=calcDay(day); h+=c.hours; ot+=Math.max(0,c.ot); d+=c.dieta;
+  }
+  const money=h*(state.settings.rate||0);
+  document.getElementById('barHours').textContent=formatHours(h)+' h';
+  document.getElementById('barOT').textContent=formatHours(ot)+' h';
+  document.getElementById('barDieta').textContent=formatMoney(d);
+  document.getElementById('barTotal').textContent=formatMoney(money+d);
+}
+
+function renderSummary(){
+  const tbody=document.getElementById('summaryBody');
+  tbody.innerHTML='';
+  const mShort=state.settings.lang==='de'?['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']:['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+  let sh=0,so=0,sd=0,sm=0;
+  for(let m=0;m<12;m++){
+    let h=0,ot=0,d=0;
+    const pref=`${state.year}-${pad(m+1)}`;
+    for(const[ds,day] of Object.entries(state.days)){
+      if(!ds.startsWith(pref)) continue;
+      const c=calcDay(day); h+=c.hours; ot+=Math.max(0,c.ot); d+=c.dieta;
+    }
+    const money=h*(state.settings.rate||0);
+    sh+=h; so+=ot; sd+=d; sm+=money;
+    tbody.innerHTML+=`<tr><td>${mShort[m]}</td><td>${formatHours(h)}</td><td>${formatHours(ot)}</td><td>${d.toFixed(0)} €</td><td>${formatMoney(money+d)}</td></tr>`;
+  }
+  tbody.innerHTML+=`<tr style="font-weight:700;background:rgba(74,163,224,0.15)"><td>Σ</td><td>${formatHours(sh)}</td><td>${formatHours(so)}</td><td>${sd.toFixed(0)} €</td><td>${formatMoney(sm+sd)}</td></tr>`;
+}
+
+// Widok kalendarza: 'month' | 'week'
+if(typeof state.calView === 'undefined') state.calView = 'month';
+if(typeof state.weekOffset === 'undefined') state.weekOffset = 0;
+
+function setCalView(v){
+  state.calView = v;
+  state.weekOffset = 0;
+  // Podświetl aktywny przycisk
+  const bm = document.getElementById('calViewMonth');
+  const bw = document.getElementById('calViewWeek');
+  if(bm){ bm.classList.toggle('btn-secondary', v !== 'month'); if(v==='month') bm.classList.remove('btn-secondary'); }
+  if(bw){ bw.classList.toggle('btn-secondary', v !== 'week'); if(v==='week') bw.classList.remove('btn-secondary'); }
+  renderCalendar();
+}
+window.setCalView = setCalView;
+
+function renderCalendar(){
+  const lang = state.settings.lang || 'pl';
+  const view = state.calView || 'month';
+  const head = document.getElementById('calHead');
+  const body = document.getElementById('calBody');
+  const cl = document.getElementById('calLabel');
+  if(!head || !body) return;
+
+  // Przyciski widoku
+  const bm = document.getElementById('calViewMonth');
+  const bw = document.getElementById('calViewWeek');
+  if(bm) bm.classList.toggle('btn-secondary', view !== 'month');
+  if(bw) bw.classList.toggle('btn-secondary', view !== 'week');
+
+  if(view === 'week'){
+    renderWeekView(lang, head, body, cl);
+  } else {
+    renderMonthView(lang, head, body, cl);
+  }
+}
+
+function renderMonthView(lang, head, body, cl){
+  if(cl) cl.textContent = (MONTHS[lang] || MONTHS.pl)[state.month] + ' ' + state.year;
+  head.innerHTML = DAY_NAMES[lang].map(n => `<div class="cal-head">${n}</div>`).join('');
+  head.style.display = '';
+  body.className = 'cal-grid';
+  body.style.display = '';
+  body.style.flexDirection = '';
+  body.style.gap = '';
+  body.innerHTML = '';
+  const first = new Date(state.year, state.month, 1);
+  const startWd = first.getDay();
+  const last = new Date(state.year, state.month+1, 0).getDate();
+  for(let i=0; i<startWd; i++) body.innerHTML += `<div class="cal-day" style="opacity:0.25"></div>`;
+  const today = toLocalDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  for(let d=1; d<=last; d++){
+    const ds = toLocalDateStr(state.year, state.month, d);
+    appendCalDay(body, ds, d, today);
+  }
+}
+
+function renderWeekView(lang, head, body, cl){
+  // Poniedziałek tygodnia zawierającego 1. dzień miesiąca + weekOffset
+  const base = new Date(state.year, state.month, 1);
+  // Znajdź poniedziałek tego tygodnia
+  const day = base.getDay(); // 0=Nd
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + mondayOffset + (state.weekOffset || 0) * 7);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const fmt = (d) => pad(d.getDate()) + '.' + pad(d.getMonth()+1);
+  if(cl) cl.textContent = fmt(monday) + ' – ' + fmt(sunday) + ' ' + monday.getFullYear();
+
+  head.innerHTML = '';
+  head.style.display = 'none';
+  body.className = '';
+  body.innerHTML = '';
+  body.style.display = 'flex';
+  body.style.flexDirection = 'column';
+  body.style.gap = '6px';
+
+  const today = toLocalDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const names = DAY_NAMES[lang] || DAY_NAMES.pl;
+
+  for(let i=0; i<7; i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const ds = toLocalDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+    const wd = d.getDay(); // 0=Nd
+    const nameIdx = wd; // DAY_NAMES starts with Nd
+    const hol = isHoliday(ds);
+    const fer = isFerien(ds);
+    const ev = state.events[ds];
+    const work = state.days[ds];
+
+    let bg = 'rgba(255,255,255,0.06)';
+    if(hol) bg = 'var(--feiertag)';
+    else if(fer) bg = 'rgba(100,200,150,0.25)';
+    else if(wd === 0 || wd === 6) bg = 'rgba(100,80,160,0.25)';
+    if(ds === today) bg = 'rgba(0,120,215,0.35)';
+
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${bg};cursor:pointer;border:1px solid var(--border)`;
+    row.onclick = () => showCalDay(ds);
+
+    let info = '';
+    if(hol) info += '🎉 ' + (hol[lang]||hol.pl) + ' ';
+    if(fer) info += '🎒 ';
+    if(ev) info += '📌 ' + ev.title;
+    if(work){
+      const c = calcDay(work);
+      if(work.status === 'work') info += (info?' · ':'') + '🔨 ' + formatHours(c.hours);
+      else if(work.status === 'urlaub') info += (info?' · ':'') + '🌴 Urlop';
+      else if(work.status === 'krank') info += (info?' · ':'') + '🌡️ Chorobowe';
+      else if(work.status === 'fza') info += (info?' · ':'') + '⏰ FZA';
+      else if(work.status === 'free') info += (info?' · ':'') + '🆓 Wolne';
+    }
+    if(!info) info = '<span style="color:var(--muted)">—</span>';
+
+    row.innerHTML = `
+      <div style="min-width:42px;font-weight:700;font-size:1.1rem">${pad(d.getDate())}</div>
+      <div style="min-width:36px;color:var(--muted);font-size:0.85rem">${names[nameIdx]}</div>
+      <div style="flex:1;font-size:0.9rem">${info}</div>
+    `;
+    body.appendChild(row);
+  }
+}
+
+function appendCalDay(body, ds, d, today){
+  const hol = isHoliday(ds);
+  const fer = isFerien(ds);
+  let cls = 'cal-day';
+  if(hol) cls += ' holiday';
+  if(fer) cls += ' ferien';
+  if(ds === today) cls += ' today';
+  if(state.events[ds]) cls += ' has-event';
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = `<span class="num">${d}</span>`;
+  div.onclick = () => showCalDay(ds);
+  body.appendChild(div);
+}
+
+// Nawigacja w widoku tygodnia – strzałki zmieniają tydzień
+const _origGoPrev = typeof goPrevMonth === 'function' ? goPrevMonth : null;
+const _origGoNext = typeof goNextMonth === 'function' ? goNextMonth : null;
+
+function goPrevMonth(){
+  if((state.calView||'month') === 'week'){
+    state.weekOffset = (state.weekOffset||0) - 1;
+    renderCalendar();
+    return;
+  }
+  state.month--;
+  if(state.month < 0){ state.month = 11; state.year--; }
+  renderAll();
+}
+function goNextMonth(){
+  if((state.calView||'month') === 'week'){
+    state.weekOffset = (state.weekOffset||0) + 1;
+    renderCalendar();
+    return;
+  }
+  state.month++;
+  if(state.month > 11){ state.month = 0; state.year++; }
+  renderAll();
+}
+window.goPrevMonth = goPrevMonth;
+window.goNextMonth = goNextMonth;
+
+function showCalDay(ds){
+  // Pokaż info o dniu + otwórz modal wydarzenia
+  const box=document.getElementById('calDayDetail');
+  const hol=isHoliday(ds);
+  const fer=isFerien(ds);
+  const ev=state.events[ds];
+  const lang=state.settings.lang || 'pl';
+  let html=`<strong>${ds.split('-').reverse().join('.')}</strong><br>`;
+  if(hol) html+=`🎉 ${hol[lang]||hol.pl}<br>`;
+  if(fer) html+=`🎒 ${fer[lang]||fer.pl}<br>`;
+  if(ev) html+=`📌 <strong>${ev.title}</strong>${ev.desc?': '+ev.desc:''}<br>`;
+  if(!hol&&!fer&&!ev) html+='<span style="color:var(--muted)">Brak wydarzeń – możesz dodać poniżej</span>';
+  html+=`<br><button type="button" class="btn btn-sm" style="margin-top:8px" onclick="openEventModal('${ds}')">${ev ? '✏️ Edytuj wydarzenie' : '➕ Dodaj wydarzenie'}</button>`;
+  if(ev) html+=` <button type="button" class="btn btn-sm btn-danger" style="margin-top:8px" onclick="deleteEvent('${ds}')">🗑️ Usuń</button>`;
+  if(box){ box.innerHTML=html; box.style.display='block'; }
+  // Od razu otwórz modal do dodania/edycji
+  openEventModal(ds);
+}
+
+function openEventModal(ds){
+  const ev = state.events[ds];
+  document.getElementById('evDate').value = ds || '';
+  document.getElementById('evTitle').value = ev ? (ev.title || '') : '';
+  document.getElementById('evDesc').value = ev ? (ev.desc || '') : '';
+  document.getElementById('evModalTitle').textContent = ev ? 'Edytuj wydarzenie' : 'Nowe wydarzenie';
+  const delBtn = document.getElementById('evDelete');
+  if(delBtn) delBtn.style.display = ev ? 'block' : 'none';
+  document.getElementById('eventModal').classList.add('show');
+}
+
+function deleteEvent(ds){
+  if(!ds) ds = document.getElementById('evDate').value;
+  if(!ds || !state.events[ds]) return;
+  if(!confirm('Usunąć wydarzenie z dnia ' + ds.split('-').reverse().join('.') + '?')) return;
+  delete state.events[ds];
+  saveState();
+  document.getElementById('eventModal').classList.remove('show');
+  const box = document.getElementById('calDayDetail');
+  if(box) box.style.display = 'none';
+  renderCalendar();
+}
+window.openEventModal = openEventModal;
+window.deleteEvent = deleteEvent;
+window.showCalDay = showCalDay;
+
+function applySettingsForm(){
+  const s=state.settings;
+  document.getElementById('setAppName').value=s.appName||'';
+  document.getElementById('setFirstName').value=s.firstName||'';
+  document.getElementById('setLastName').value=s.lastName||'';
+  document.getElementById('setWorkplace').value=s.workplace||'';
+  document.getElementById('setRate').value=s.rate||15;
+  document.getElementById('setLang').value=s.lang||'pl';
+  document.getElementById('setTheme').value=s.theme||'aero';
+  const rm=document.getElementById('setRemind'); if(rm) rm.checked=!!s.remind;
+  document.getElementById('setAutoPause').checked=s.autoPause!==false;
+  document.getElementById('colStart').checked=s.cols.start!==false;
+  document.getElementById('colEnd').checked=s.cols.end!==false;
+  document.getElementById('colPause').checked=s.cols.pause!==false;
+  document.getElementById('colHours').checked=s.cols.hours!==false;
+  document.getElementById('colOt').checked=s.cols.ot!==false;
+  document.getElementById('colDieta').checked=s.cols.dieta!==false;
+}
+
+// Modal day
+let editingDate=null;
+function openDayModal(ds){
+  editingDate=ds;
+  const day=state.days[ds]||{status:'work',start:'06:00',end:'15:30',pause:0,dieta:0,autoPause:true};
+  document.getElementById('modalTitle').textContent = (ds ? ds.split('-').reverse().join('.') : 'Nowy dzień');
+  const dateInput = document.getElementById('editDate');
+  dateInput.value = ds || '';
+  dateInput.removeAttribute('min');
+  dateInput.removeAttribute('max');
+  dateInput.disabled = false;
+  document.getElementById('editStart').value=day.start||'06:00';
+  document.getElementById('editEnd').value=day.end||'15:30';
+  const _p = day.pause??0;
+  document.getElementById('editPause').value=_p;
+  document.getElementById('editPauseH').value=Math.floor(_p/60);
+  document.getElementById('editPauseM').value=_p%60;
+  document.getElementById('editAutoPause').checked=day.autoPause!==false;
+  document.getElementById('editNote').value=day.note||'';
+  document.getElementById('pauseSummary').textContent=formatPause(day.pause??0);
+  document.getElementById('pauseBody').classList.remove('open');
+  document.querySelectorAll('#statusBtns button').forEach(b=>b.classList.toggle('active-status',b.dataset.status===(day.status||'work')));
+  document.querySelectorAll('#dietaBtns button').forEach(b=>b.classList.toggle('active-dieta',+b.dataset.dieta===(day.dieta||0)));
+  document.getElementById('workFields').style.display=(day.status==='work'||!day.status)?'block':'none';
+  document.getElementById('dayModal').classList.add('show');
+}
+function closeModal(){ document.getElementById('dayModal').classList.remove('show'); editingDate=null; }
+
+// ===== ROBUST EVENT BINDING =====
+function goPrevYear(){ state.year--; renderAll(); }
+function goNextYear(){ state.year++; renderAll(); }
+window.goPrevYear = goPrevYear;
+window.goNextYear = goNextYear;
+// goPrevMonth / goNextMonth zdefiniowane wyżej (obsługują widok tygodnia)
+
+function bindAllEvents(){
+  const startBtn = document.getElementById('startBtn');
+  if(startBtn) startBtn.onclick = ()=> document.getElementById('splash').classList.add('hide');
+
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = document.getElementById('panel-' + btn.dataset.tab);
+      if(panel) panel.classList.add('active');
+    };
+  });
+
+  // Month / Year navigation – bind every time to be safe
+  const bind = (id, fn) => {
+    const el = document.getElementById(id);
+    if(el){ el.onclick = fn; el.ontouchend = (e)=>{ e.preventDefault(); fn(); }; }
+  };
+  bind('prevYear', goPrevYear);
+  bind('nextYear', goNextYear);
+  bind('prevMonth', goPrevMonth);
+  bind('nextMonth', goNextMonth);
+  bind('calPrev', goPrevMonth);
+  bind('calNext', goNextMonth);
+
+  const addBtn = document.getElementById('addDayBtn');
+  if(addBtn) addBtn.onclick = ()=> openDayModal(toLocalDateStr(state.year, state.month, 1));
+}
+
+// Call once now
+bindAllEvents();
+
+
+document.getElementById('pauseToggle').onclick=()=>{
+  document.getElementById('pauseBody').classList.toggle('open');
+};
+function syncPauseFromHM(){
+  const h=Math.max(0,+document.getElementById('editPauseH').value||0);
+  const m=Math.min(59,Math.max(0,+document.getElementById('editPauseM').value||0));
+  const total=h*60+m;
+  document.getElementById('editPause').value=total;
+  document.getElementById('pauseSummary').textContent=formatPause(total);
+}
+document.getElementById('editPauseH').oninput=syncPauseFromHM;
+document.getElementById('editPauseM').oninput=syncPauseFromHM;
+
+document.querySelectorAll('#statusBtns button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#statusBtns button').forEach(x=>x.classList.remove('active-status'));
+    b.classList.add('active-status');
+    document.getElementById('workFields').style.display=b.dataset.status==='work'?'block':'none';
+  };
+});
+document.querySelectorAll('#dietaBtns button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#dietaBtns button').forEach(x=>x.classList.remove('active-dieta'));b.classList.add('active-dieta');};
+});
+
+document.getElementById('cancelDayBtn').onclick=closeModal;
+document.getElementById('saveDayBtn').onclick=()=>{
+  const ds=document.getElementById('editDate').value;
+  if(!ds) return alert('Brak daty');
+  const status=document.querySelector('#statusBtns .active-status')?.dataset.status||'work';
+  const dieta=+document.querySelector('#dietaBtns .active-dieta')?.dataset.dieta||0;
+  const day={
+    status, start:document.getElementById('editStart').value, end:document.getElementById('editEnd').value,
+    pause:+document.getElementById('editPause').value||0, autoPause:document.getElementById('editAutoPause').checked,
+    dieta, note:document.getElementById('editNote').value
+  };
+  if(status!=='work'){ day.start=day.end=''; day.pause=0; }
+  state.days[ds]=day;
+  if(editingDate&&editingDate!==ds) delete state.days[editingDate];
+  // Przełącz widok na miesiąc zapisanego dnia
+  const parts = ds.split('-');
+  state.year = parseInt(parts[0], 10);
+  state.month = parseInt(parts[1], 10) - 1;
+  saveState(); closeModal(); renderAll();
+};
+document.getElementById('deleteDayBtn').onclick=()=>{
+  if(editingDate&&confirm('Usunąć?')){ delete state.days[editingDate]; saveState(); closeModal(); renderAll(); }
+};
+
+document.getElementById('saveSettingsBtn').onclick=()=>{
+  state.settings.appName=document.getElementById('setAppName').value||'Ewidencja czasu';
+  state.settings.firstName=document.getElementById('setFirstName').value;
+  state.settings.lastName=document.getElementById('setLastName').value;
+  state.settings.workplace=document.getElementById('setWorkplace').value;
+  state.settings.rate=parseFloat(document.getElementById('setRate').value)||0;
+  state.settings.lang=document.getElementById('setLang').value;
+  state.settings.theme=document.getElementById('setTheme').value;
+  state.settings.remind=document.getElementById('setRemind')?.checked||false;
+  if(state.settings.remind) requestNotifyPermission();
+  state.settings.autoPause=document.getElementById('setAutoPause').checked;
+  state.settings.cols={
+    start:document.getElementById('colStart').checked,
+    end:document.getElementById('colEnd').checked,
+    pause:document.getElementById('colPause').checked,
+    hours:document.getElementById('colHours').checked,
+    ot:document.getElementById('colOt').checked,
+    dieta:document.getElementById('colDieta').checked
+  };
+  saveState(); renderAll(); alert(t('save')+' ✓');
+};
+document.getElementById('clearDataBtn').onclick=()=>{
+  if(confirm('Usunąć wszystkie wpisy?')){ state.days={}; saveState(); renderAll(); }
+};
+
+function doExportExcel(){
+  const rows=[['Data','Dzień','Status','Start','Koniec','Przerwa','Godziny','Nadgodziny','Dieta','Notatka','Święto']];
+  const sorted=Object.keys(state.days).sort();
+  for(const ds of sorted){
+    if(!ds.startsWith(String(state.year))) continue;
+    const day=state.days[ds], c=calcDay(day);
+    const d=new Date(ds+'T12:00:00');
+    const st={work:'Praca',urlaub:'Urlop',krank:'Chorobowe',fza:'FZA',wolny:'Wolny'}[day.status]||day.status;
+    const hol=isHoliday(ds);
+    rows.push([ds,DAY_FULL[state.settings.lang][d.getDay()],st,day.start||'',day.end||'',c.pauseUsed??day.pause??0,formatHours(c.hours),formatHours(c.ot),c.dieta,day.note||'',hol?(hol[state.settings.lang]||hol.pl):'']);
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ewidencja');
+  XLSX.writeFile(wb,`Ewidencja_${state.year}.xlsx`);
+}
+document.getElementById('exportExcelBtn').onclick=doExportExcel;
+document.getElementById('setExportExcel').onclick=doExportExcel;
+document.getElementById('exportJsonBtn').onclick=document.getElementById('setExportJson').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`ewidencja_${state.year}.json`; a.click();
+};
+document.getElementById('importJsonBtn').onclick=document.getElementById('setImport').onclick=()=>document.getElementById('importFile').click();
+document.getElementById('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      if(f.name.endsWith('.json')){
+        const data=JSON.parse(ev.target.result);
+        if(data.days){ state={...state,...data}; saveState(); renderAll(); alert('OK'); }
+      } else {
+        // basic xlsx import not fully implemented for simplicity – JSON preferred
+        alert('Użyj pliku JSON do importu (eksportuj najpierw JSON, edytuj, wczytaj z powrotem). Excel służy głównie do podglądu.');
+      }
+    }catch(err){ alert('Błąd pliku'); }
+  };
+  r.readAsText(f);
+};
+
+// Calendar view switch
+document.getElementById('calViewMonth').onclick = () => setCalView('month');
+document.getElementById('calViewWeek').onclick = () => setCalView('week');
+
+// Events calendar
+document.getElementById('calAddEvent').onclick=()=>{
+  openEventModal(toLocalDateStr(state.year, state.month, 1));
+};
+document.getElementById('evCancel').onclick=()=>document.getElementById('eventModal').classList.remove('show');
+document.getElementById('evSave').onclick=()=>{
+  const ds=document.getElementById('evDate').value;
+  const title=document.getElementById('evTitle').value.trim();
+  if(!ds||!title) return alert('Data i tytuł są wymagane');
+  state.events[ds]={title, desc:document.getElementById('evDesc').value.trim()};
+  saveState();
+  document.getElementById('eventModal').classList.remove('show');
+  renderCalendar();
+  // Odśwież panel szczegółów
+  const box=document.getElementById('calDayDetail');
+  if(box && box.style.display!=='none') showCalDay(ds);
+};
+document.getElementById('evDelete').onclick=()=>{
+  deleteEvent(document.getElementById('evDate').value);
+};
+
+
+// ===== NOWE FUNKCJE: szablony, kopiuj, PDF, tydzień, przypomnienia =====
+
+function getPrevWorkdayStr(fromDs){
+  const d = fromDs ? new Date(fromDs+'T12:00:00') : new Date();
+  for(let i=1;i<=14;i++){
+    const p = new Date(d); p.setDate(d.getDate()-i);
+    const ds = toLocalDateStr(p.getFullYear(), p.getMonth(), p.getDate());
+    const wd = p.getDay();
+    if(wd===0||wd===6) continue;
+    if(isHoliday(ds)) continue;
+    return ds;
+  }
+  return null;
+}
+
+function copyYesterday(){
+  const cur = document.getElementById('editDate').value;
+  const prev = getPrevWorkdayStr(cur);
+  if(!prev){ alert('Brak poprzedniego dnia roboczego'); return; }
+  const day = state.days[prev];
+  if(!day){ alert('Brak wpisu dla '+prev.split('-').reverse().join('.')); return; }
+  // apply
+  document.querySelectorAll('#statusBtns button').forEach(b=>{
+    b.classList.toggle('active-status', b.dataset.status===(day.status||'work'));
+  });
+  document.getElementById('workFields').style.display=(day.status==='work'||!day.status)?'block':'none';
+  document.getElementById('editStart').value = day.start||'06:00';
+  document.getElementById('editEnd').value = day.end||'15:30';
+  const _p = day.pause||0;
+  document.getElementById('editPause').value=_p;
+  document.getElementById('editPauseH').value=Math.floor(_p/60);
+  document.getElementById('editPauseM').value=_p%60;
+  document.getElementById('pauseSummary').textContent=formatPause(_p);
+  document.getElementById('editAutoPause').checked = day.autoPause!==false;
+  document.querySelectorAll('#dietaBtns button').forEach(b=>{
+    b.classList.toggle('active-dieta', +b.dataset.dieta===(day.dieta||0));
+  });
+  if(day.note) document.getElementById('editNote').value = day.note;
+}
+
+function applyShiftTemplate(range){
+  const [a,b] = range.split('-');
+  document.getElementById('editStart').value = a;
+  document.getElementById('editEnd').value = b;
+  // select work status
+  document.querySelectorAll('#statusBtns button').forEach(x=>{
+    x.classList.toggle('active-status', x.dataset.status==='work');
+  });
+  document.getElementById('workFields').style.display='block';
+}
+
+function getWeekRange(y,m,dayNum){
+  const d = new Date(y,m,dayNum||1);
+  const wd = d.getDay();
+  const mondayOffset = wd===0 ? -6 : 1-wd;
+  const mon = new Date(d); mon.setDate(d.getDate()+mondayOffset);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return {mon,sun};
+}
+
+function renderWeekBar(){
+  const el = document.getElementById('weekBar');
+  if(!el) return;
+  const today = new Date();
+  // show current viewed month's "this week" relative to today if same month, else first week of month
+  let refDay = 1;
+  if(today.getFullYear()===state.year && today.getMonth()===state.month) refDay = today.getDate();
+  const {mon,sun} = getWeekRange(state.year, state.month, refDay);
+  let hours=0, ot=0, days=0;
+  for(let i=0;i<7;i++){
+    const d=new Date(mon); d.setDate(mon.getDate()+i);
+    const ds=toLocalDateStr(d.getFullYear(),d.getMonth(),d.getDate());
+    const day=state.days[ds];
+    if(!day) continue;
+    const c=calcDay(day);
+    hours+=c.hours; ot+=c.ot; days++;
+  }
+  const fmt = (d)=>pad(d.getDate())+'.'+pad(d.getMonth()+1);
+  el.innerHTML = `📅 Tydzień ${fmt(mon)}–${fmt(sun)}: <strong>${formatHours(hours)}</strong> · Nadg. ${formatHours(Math.max(0,ot))} · Dni: ${days}`;
+}
+
+function exportMonthPdf(){
+  const y=state.year, m=state.month;
+  const lang=state.settings.lang||'pl';
+  const monthName=(MONTHS[lang]||MONTHS.pl)[m];
+  let rows='';
+  let th=0,tot=0,td=0;
+  for(const ds of getMonthDays(y,m)){
+    const day=state.days[ds];
+    if(!day) continue;
+    const c=calcDay(day);
+    th+=c.hours; tot+=Math.max(0,c.ot); td+=c.dieta;
+    const st = day.status||'work';
+    rows += `<tr>
+      <td>${ds.split('-').reverse().join('.')}</td>
+      <td>${st}</td>
+      <td>${day.start||'–'}</td>
+      <td>${day.end||'–'}</td>
+      <td>${formatPause(c.pauseUsed||0)}</td>
+      <td>${formatHours(c.hours)}</td>
+      <td>${formatHours(c.ot)}</td>
+      <td>${c.dieta} €</td>
+    </tr>`;
+  }
+  const rate=state.settings.rate||0;
+  const money=th*rate;
+  const name=[state.settings.firstName,state.settings.lastName].filter(Boolean).join(' ');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ewidencja ${monthName} ${y}</title>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;padding:24px;color:#111}
+    h1{font-size:1.3rem;margin:0 0 4px}
+    .meta{color:#555;margin-bottom:16px;font-size:0.9rem}
+    table{border-collapse:collapse;width:100%;font-size:0.85rem}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+    th{background:#eee}
+    .sum{margin-top:16px;font-size:0.95rem}
+    @media print{button{display:none}}
+  </style></head><body>
+  <button onclick="window.print()" style="padding:8px 16px;margin-bottom:12px">Drukuj / Zapisz PDF</button>
+  <h1>Ewidencja czasu – ${monthName} ${y}</h1>
+  <div class="meta">${name||''} ${state.settings.workplace?('· '+state.settings.workplace):''} · Stawka: ${rate} €/h</div>
+  <table>
+    <thead><tr><th>Data</th><th>Status</th><th>Start</th><th>Koniec</th><th>Przerwa</th><th>Godz.</th><th>Nadg.</th><th>Dieta</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="8">Brak wpisów</td></tr>'}</tbody>
+  </table>
+  <div class="sum">
+    <p><strong>Suma godzin:</strong> ${formatHours(th)} &nbsp; <strong>Nadgodziny:</strong> ${formatHours(tot)}</p>
+    <p><strong>Zarobek:</strong> ${formatMoney(money)} &nbsp; <strong>Diety:</strong> ${formatMoney(td)} &nbsp; <strong>Razem:</strong> ${formatMoney(money+td)}</p>
+  </div>
+  <p style="margin-top:24px;color:#888;font-size:0.75rem">Autor: Cichocki Tomasz · wygenerowano ${new Date().toLocaleString('pl-PL')}</p>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close();
+}
+
+function checkReminder(){
+  if(!state.settings.remind) return;
+  const prev=getPrevWorkdayStr();
+  if(!prev) return;
+  if(state.days[prev]) return;
+  const label=prev.split('-').reverse().join('.');
+  const msg='Brak wpisu za ostatni dzień roboczy: '+label;
+  if(window.Notification && Notification.permission==='granted'){
+    try{ new Notification('Ewidencja czasu',{body:msg}); }catch(e){}
+  }
+  // soft banner
+  setTimeout(()=>{
+    if(confirm(msg+'\n\nOtworzyć edycję tego dnia?')) openDayModal(prev);
+  }, 800);
+}
+
+function requestNotifyPermission(){
+  if(window.Notification && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+
+function doBackupJson(){
+  const data=JSON.stringify(state,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='ewidencja-backup-'+toLocalDateStr(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())+'.json';
+  a.click();
+}
+
+function maybeWeeklyBackup(){
+  const key='ewidencja_last_backup';
+  const last=localStorage.getItem(key);
+  const now=Date.now();
+  if(last && (now-+last)<6*24*3600*1000) return; // co ~7 dni
+  // ciche przypomnienie raz
+  if(state.settings && Object.keys(state.days||{}).length>0){
+    setTimeout(()=>{
+      if(confirm('Minął tydzień od ostatniego backupu. Pobrać kopię JSON?')){
+        doBackupJson();
+        localStorage.setItem(key,String(now));
+      } else {
+        localStorage.setItem(key,String(now));
+      }
+    }, 1200);
+  }
+}
+
+
+document.getElementById('btnCopyYesterday')?.addEventListener('click', copyYesterday);
+document.querySelectorAll('#shiftTemplates button').forEach(b=>{
+  b.addEventListener('click', ()=> applyShiftTemplate(b.dataset.shift));
+});
+document.getElementById('setExportPdf')?.addEventListener('click', exportMonthPdf);
+document.getElementById('setBackupNow')?.addEventListener('click', ()=>{ doBackupJson(); localStorage.setItem('ewidencja_last_backup', String(Date.now())); });
+
+loadState();
+if(!localStorage.getItem(STORAGE_KEY)){
+  const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth();
+}
+renderAll();
+try{checkReminder();}catch(e){}
+try{maybeWeeklyBackup();}catch(e){}
+
+bindAllEvents();  // ponowne bindowanie po renderze
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').then(function(r){ console.log('SW OK', r.scope); }).catch(function(e){ console.log('SW fail', e); });
+  });
+}
+</script>
+</body>
+</html>
