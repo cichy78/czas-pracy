@@ -1,0 +1,2773 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a5f9e">
+<meta name="description" content="Ewidencja czasu pracy – Ewidencja czasu pracy z kalendarzem, dietami i świętami Saksonii">
+<meta name="application-name" content="Ewidencja czasu">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ewidencja">
+<title>Ewidencja czasu</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+:root {
+  --bg1:#0a2a4a; --bg2:#0d4a7a; --bg3:#1a6aa0;
+  --glass:rgba(0,20,40,0.55); --border:rgba(255,255,255,0.35);
+  --text:#f0f7ff; --muted:#a8c8e8; --accent:#4aa3e0;
+  --success:#5ad67a; --danger:#ff6b6b; --warning:#ffd166;
+  --urlaub:rgba(100,180,255,0.4); --krank:rgba(255,140,100,0.4);
+  --fza:rgba(180,140,255,0.4); --wolny:rgba(140,140,140,0.35);
+  --feiertag:rgba(255,200,50,0.35); --sat:rgba(80,120,200,0.25); --sun:rgba(160,80,120,0.3);
+}
+body.theme-xp {
+  --bg1:#3a6ea5; --bg2:#7ba2d0; --bg3:#c3d9f1;
+  --glass:rgba(255,255,255,0.75); --border:#003c74;
+  --text:#000; --muted:#333; --accent:#0055aa;
+  --success:#008000; --danger:#c00000; --warning:#a06000;
+}
+/* Stonowane motywy */
+body.theme-graphite {
+  --bg1:#2a2a2e; --bg2:#3a3a40; --bg3:#4a4a52;
+  --glass:rgba(40,40,45,0.75); --border:rgba(180,180,190,0.25);
+  --text:#e8e8ec; --muted:#a0a0a8; --accent:#8a9bb0;
+  --success:#6a9a7a; --danger:#c07070; --warning:#c0a060;
+}
+body.theme-olive {
+  --bg1:#2c3328; --bg2:#3d4636; --bg3:#4e5844;
+  --glass:rgba(45,50,40,0.75); --border:rgba(160,170,140,0.3);
+  --text:#e6ebe0; --muted:#a8b09a; --accent:#8a9a6e;
+  --success:#7a9a6a; --danger:#b07060; --warning:#b0a060;
+}
+body.theme-slate {
+  --bg1:#1e2a32; --bg2:#2a3a44; --bg3:#3a4a56;
+  --glass:rgba(30,42,50,0.75); --border:rgba(140,160,175,0.3);
+  --text:#e0e8ec; --muted:#98a8b0; --accent:#6a8a9a;
+  --success:#5a9a7a; --danger:#b07070; --warning:#b09860;
+}
+body.theme-sand {
+  --bg1:#3a342c; --bg2:#4a4338; --bg3:#5a5344;
+  --glass:rgba(55,50,42,0.75); --border:rgba(180,165,140,0.3);
+  --text:#f0ebe0; --muted:#b0a890; --accent:#a09070;
+  --success:#7a9a6a; --danger:#b07868; --warning:#c0a060;
+}
+body.theme-midnight {
+  --bg1:#12141c; --bg2:#1a1e2a; --bg3:#242836;
+  --glass:rgba(22,26,36,0.8); --border:rgba(100,110,140,0.3);
+  --text:#d8dce8; --muted:#888e9e; --accent:#6a7a9a;
+  --success:#5a8a6a; --danger:#a06060; --warning:#a09050;
+}
+body.theme-soft {
+  --bg1:#e8e4dc; --bg2:#d8d4cc; --bg3:#c8c4bc;
+  --glass:rgba(255,255,255,0.7); --border:rgba(100,100,100,0.25);
+  --text:#2a2a28; --muted:#5a5a55; --accent:#5a6a7a;
+  --success:#3a7a4a; --danger:#a04040; --warning:#8a6a20;
+}
+.quick-templates { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.quick-templates button { font-size:0.75rem; padding:6px 10px; }
+.week-bar { font-size:0.9rem; padding:8px 12px; margin-bottom:8px; color:var(--muted); }
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body {
+  font-family:"Segoe UI",Tahoma,sans-serif;
+  background:linear-gradient(160deg,var(--bg1),var(--bg2),var(--bg3));
+  min-height:100vh; color:var(--text); overflow-x:hidden;
+}
+.glass {
+  background:var(--glass); backdrop-filter:blur(16px);
+  border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 8px 32px rgba(0,0,0,0.3);
+}
+/* SPLASH */
+#splash {
+  position:fixed; inset:0; z-index:9999;
+  background:linear-gradient(160deg,#0a2a4a 0%,#0d4a7a 40%,#1a6aa0 100%);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  transition:opacity 0.5s;
+}
+#splash.hide { opacity:0; pointer-events:none; }
+.splash-bg {
+  position:absolute; inset:0; overflow:hidden;
+}
+.splash-bg::before {
+  content:''; position:absolute; width:200%; height:200%;
+  background:radial-gradient(circle at 30% 40%,rgba(74,163,224,0.3) 0%,transparent 50%),
+             radial-gradient(circle at 70% 60%,rgba(90,214,122,0.2) 0%,transparent 40%);
+  animation:float 12s ease-in-out infinite;
+}
+@keyframes float { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-5%,3%)} }
+.splash-content { position:relative; text-align:center; z-index:1; }
+.splash-content h1 { font-size:2rem; margin-bottom:8px; text-shadow:0 2px 8px rgba(0,0,0,0.5); }
+.splash-content p { color:var(--muted); margin-bottom:40px; }
+#startBtn {
+  background:linear-gradient(180deg,#5ad67a,#2a9a4a);
+  border:none; color:#fff; font-size:1.3rem; font-weight:700;
+  padding:16px 48px; border-radius:50px; cursor:pointer;
+  box-shadow:0 4px 20px rgba(90,214,122,0.5);
+  animation:pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+header {
+  padding:10px 14px; display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(180deg,rgba(10,95,158,0.9),rgba(4,58,99,0.85));
+  border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100;
+}
+header h1 { font-size:1.15rem; }
+.year-nav { display:flex; align-items:center; gap:6px; }
+.year-nav button { background:rgba(255,255,255,0.15); border:1px solid var(--border); color:var(--text); width:30px; height:30px; border-radius:8px; cursor:pointer; }
+nav.tabs { display:flex; overflow-x:auto; background:rgba(0,20,40,0.4); border-bottom:1px solid var(--border); }
+nav.tabs button {
+  flex:1; min-width:70px; padding:11px 6px; background:transparent; border:none;
+  color:var(--muted); font-size:0.8rem; cursor:pointer; border-bottom:3px solid transparent;
+}
+nav.tabs button.active { color:var(--text); border-bottom-color:var(--accent); background:rgba(74,163,224,0.15); }
+main { padding:10px; max-width:980px; margin:0 auto; padding-bottom:100px; }
+.panel { display:none; } .panel.active { display:block; }
+.home-card { text-align:center; padding:28px 16px; margin-bottom:12px; }
+.home-card h2 { font-size:1.5rem; margin-bottom:6px; }
+.home-day-info { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:14px 0; text-align:left; }
+.home-day-info .info-item { padding:12px; border-radius:10px; background:rgba(0,0,0,0.2); }
+.home-day-info .info-item .ico { font-size:1.4rem; margin-right:6px; }
+.home-day-info .info-item .lab { font-size:0.75rem; color:var(--muted); }
+.home-day-info .info-item .val { font-size:1.1rem; font-weight:700; margin-top:2px; }
+.home-imieniny { margin:10px 0 4px; padding:12px; border-radius:10px; background:rgba(74,163,224,0.15); text-align:center; }
+.home-imieniny .lab { font-size:0.75rem; color:var(--muted); }
+.home-imieniny .val { font-size:1rem; font-weight:600; margin-top:4px; }
+.home-month-title { font-size:0.9rem; color:var(--muted); margin:16px 0 8px; text-align:center; }
+
+.stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px; }
+.stat-box { padding:12px; text-align:center; }
+.stat-box .value { font-size:1.3rem; font-weight:700; color:var(--accent); }
+.stat-box .label { font-size:0.7rem; color:var(--muted); margin-top:3px; }
+.month-bar { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; margin-bottom:10px; }
+.month-bar h3 { font-size:1.1rem; }
+.month-bar button { background:rgba(255,255,255,0.15); border:1px solid var(--border); color:var(--text); padding:6px 12px; border-radius:8px; cursor:pointer; }
+.days-table { width:100%; border-collapse:collapse; font-size:0.9rem; }
+.days-table th { background:rgba(10,95,158,0.55); padding:10px 6px; text-align:left; font-size:0.85rem; position:sticky; top:0; }
+.days-table td { padding:9px 6px; border-bottom:1px solid rgba(255,255,255,0.08); vertical-align:middle; }
+.days-table tr { cursor:pointer; }
+.days-table tr:hover { background:rgba(74,163,224,0.15); }
+.days-table tr.status-urlaub { background:var(--urlaub); }
+.days-table tr.status-krank { background:var(--krank); }
+.days-table tr.status-fza { background:var(--fza); }
+.days-table tr.status-wolny { background:var(--wolny); }
+.days-table tr.status-feiertag { background:var(--feiertag); }
+.days-table tr.day-saturday { background:var(--sat); }
+.days-table tr.day-sunday { background:var(--sun); }
+.hours { color:var(--success); font-weight:600; }
+.ot { color:var(--warning); font-weight:600; }
+.ot-neg { color:var(--danger); font-weight:600; }
+.day-name { font-size:0.75rem; color:var(--muted); display:block; }
+.holiday-note { font-size:0.7rem; color:#ffd666; display:block; }
+.icon-status { font-size:1.1rem; margin-right:4px; }
+.bottom-bar {
+  position:fixed; bottom:0; left:0; right:0;
+  background:linear-gradient(180deg,rgba(4,58,99,0.95),rgba(2,30,50,0.98));
+  border-top:1px solid var(--border); padding:10px; display:flex; justify-content:space-around;
+  flex-wrap:wrap; gap:6px; z-index:90; font-size:0.8rem;
+}
+.bottom-bar .item { text-align:center; min-width:60px; }
+.bottom-bar .val { font-weight:700; font-size:0.95rem; color:var(--accent); }
+.btn {
+  background:linear-gradient(180deg,#4aa3e0,#0a5f9e); border:1px solid rgba(255,255,255,0.4);
+  color:#fff; padding:10px 16px; border-radius:8px; font-size:0.9rem; cursor:pointer;
+}
+.btn-secondary { background:linear-gradient(180deg,rgba(255,255,255,0.2),rgba(255,255,255,0.08)); }
+.btn-danger { background:linear-gradient(180deg,#e05a5a,#a03030); }
+.btn-success { background:linear-gradient(180deg,#5ad67a,#2a9a4a); }
+.btn-sm { padding:6px 10px; font-size:0.8rem; }
+.modal-overlay {
+  position:fixed; inset:0; background:rgba(0,10,30,0.7); backdrop-filter:blur(5px);
+  z-index:200; display:none; align-items:center; justify-content:center; padding:14px;
+}
+.modal-overlay.show { display:flex; }
+.modal { width:100%; max-width:440px; max-height:92vh; overflow-y:auto; padding:18px; }
+.modal h3 { margin-bottom:14px; font-size:1.2rem; border-bottom:1px solid var(--border); padding-bottom:6px; }
+.form-group { margin-bottom:12px; }
+.form-group label { display:block; font-size:0.8rem; color:var(--muted); margin-bottom:4px; }
+.form-group input, .form-group select {
+  width:100%; padding:10px; background:rgba(0,20,40,0.6); border:1px solid var(--border);
+  border-radius:8px; color:var(--text); font-size:1rem;
+}
+.form-row { display:flex; gap:10px; } .form-row .form-group { flex:1; }
+.status-btns { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+.status-btns button {
+  flex:1; min-width:60px; padding:10px 4px; font-size:0.78rem; border-radius:8px;
+  border:1px solid var(--border); background:rgba(255,255,255,0.1); color:var(--text); cursor:pointer;
+}
+.status-btns button.active-status { background:linear-gradient(180deg,#4aa3e0,#0a5f9e); }
+.dieta-btns { display:flex; gap:6px; }
+.dieta-btns button {
+  flex:1; padding:12px; font-size:0.95rem; font-weight:600; border-radius:8px;
+  border:1px solid var(--border); background:rgba(255,255,255,0.1); color:var(--text); cursor:pointer;
+}
+.dieta-btns button.active-dieta { background:linear-gradient(180deg,#5ad67a,#2a9a4a); }
+.modal-actions { display:flex; gap:8px; margin-top:16px; } .modal-actions .btn { flex:1; }
+.settings-section { margin-bottom:18px; }
+.settings-section h4 { font-size:0.95rem; color:var(--accent); margin-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px; }
+.checkbox-row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+.checkbox-row input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); }
+.info-box { padding:12px; margin-bottom:10px; font-size:0.85rem; line-height:1.4; }
+.workdays-info { font-size:0.85rem; color:var(--muted); margin-bottom:8px; padding:8px 12px; }
+/* Time inputs – large & visible */
+input[type="time"] {
+  font-size: 1.35rem !important;
+  font-weight: 700;
+  padding: 14px 12px !important;
+  min-height: 52px;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  background: rgba(0,0,0,0.35);
+  border: 2px solid var(--accent) !important;
+  border-radius: 12px !important;
+  width: 100%;
+}
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.5);
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  opacity: 1;
+}
+.time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.time-row .form-group label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 4px;
+  display: block;
+}
+.time-row .form-group {
+  margin-bottom: 0;
+}
+/* Pause as HH:MM */
+.pause-hm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pause-hm input[type="number"] {
+  width: 70px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  text-align: center;
+  padding: 10px 6px;
+  border: 2px solid var(--accent);
+  border-radius: 10px;
+  background: rgba(0,0,0,0.35);
+  color: var(--text);
+}
+.pause-hm span.sep { font-size: 1.4rem; font-weight: 700; }
+
+.pause-section { border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:8px 10px; margin-bottom:12px; background:rgba(0,0,0,0.15); }
+.pause-header { display:flex; justify-content:space-between; cursor:pointer; }
+.pause-body { display:none; margin-top:10px; } .pause-body.open { display:block; }
+/* Calendar */
+.cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+.cal-day {
+  aspect-ratio:1; border-radius:8px; padding:4px; font-size:0.75rem;
+  background:rgba(0,0,0,0.2); text-align:center; cursor:pointer; position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+}
+.cal-day .num { font-weight:600; }
+.cal-day.holiday { background:var(--feiertag); }
+.cal-day.ferien { background:rgba(100,200,150,0.3); }
+.cal-day.today { outline:2px solid var(--accent); }
+.cal-day.has-event::after { content:'•'; color:var(--warning); font-size:1rem; line-height:0.5; }
+.cal-head { font-size:0.7rem; text-align:center; color:var(--muted); padding:4px; }
+.author { text-align:center; font-size:0.8rem; color:var(--muted); margin-top:20px; padding:10px; }
+.hide-col { display:none !important; }
+</style>
+</head>
+<body>
+<!-- SPLASH -->
+<div id="splash">
+  <div class="splash-bg"></div>
+  <div class="splash-content">
+    <div style="font-size:4rem;margin-bottom:12px">⏱</div>
+    <h1 id="splashTitle">Ewidencja czasu</h1>
+    <p id="splashSub">Ewidencja czasu pracy</p>
+    <button id="startBtn">START</button>
+  </div>
+</div>
+
+<header>
+  <h1 id="appTitle">Ewidencja czasu</h1>
+  <div class="year-nav">
+    <button type="button" id="prevYear" onclick="goPrevYear()" style="min-width:40px;min-height:40px;cursor:pointer">‹</button>
+    <span id="currentYear">2026</span>
+    <button type="button" id="nextYear" onclick="goNextYear()" style="min-width:40px;min-height:40px;cursor:pointer">›</button>
+  </div>
+</header>
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="home" data-i18n="tab_home">Start</button>
+  <button class="tab-btn" data-tab="days" data-i18n="tab_days">Dni</button>
+  <button class="tab-btn" data-tab="calendar" data-i18n="tab_cal">Kalendarz</button>
+  <button class="tab-btn" data-tab="summary" data-i18n="tab_year">Rok</button>
+  <button class="tab-btn" data-tab="settings" data-i18n="tab_set">Ustawienia</button>
+</nav>
+<main>
+  <!-- HOME -->
+  <div id="panel-home" class="panel active">
+    <div class="glass home-card">
+      <h2 id="welcomeName">Witaj</h2>
+      <p class="subtitle" id="workplaceLabel" style="color:var(--muted)">Miejsce pracy</p>
+      <p id="homeTodayDate" style="font-size:0.9rem;color:var(--muted);margin-top:4px"></p>
+
+      <div class="home-day-info">
+        <div class="info-item">
+          <div class="lab"><span class="ico">🌅</span> Wschód słońca</div>
+          <div class="val" id="homeSunrise">–:–</div>
+        </div>
+        <div class="info-item">
+          <div class="lab"><span class="ico">🌇</span> Zachód słońca</div>
+          <div class="val" id="homeSunset">–:–</div>
+        </div>
+      </div>
+
+      <div class="home-imieniny">
+        <div class="lab">🎉 Imieniny dziś</div>
+        <div class="val" id="homeImieniny">–</div>
+      </div>
+
+      <div class="home-month-title" id="homeMonthTitle">Bieżący miesiąc</div>
+      <div class="stats-grid">
+        <div class="glass stat-box"><div class="value" id="homeHours">0:00</div><div class="label">Godziny (miesiąc)</div></div>
+        <div class="glass stat-box"><div class="value" id="homeOT">0:00</div><div class="label" data-i18n="ot">Nadgodziny</div></div>
+        <div class="glass stat-box"><div class="value" id="homeMoney">0,00 €</div><div class="label" data-i18n="earn">Zarobek</div></div>
+        <div class="glass stat-box"><div class="value" id="homeDieta">0,00 €</div><div class="label" data-i18n="dieta">Diety</div></div>
+      </div>
+      <div class="glass stat-box" style="margin-top:10px"><div class="value" id="homeTotal">0,00 €</div><div class="label" data-i18n="total">Razem do wypłaty (miesiąc)</div></div>
+      <div class="glass stat-box" id="homeNormBox" style="margin-top:10px">
+        <div class="value" id="homeNorm">–</div>
+        <div class="label">Do normy miesiąca (8 h × dni robocze)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNI -->
+  <div id="panel-days" class="panel">
+    <div class="glass month-bar">
+      <button type="button" id="prevMonth" onclick="goPrevMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">‹</button>
+      <h3 id="monthLabel">Październik 2026</h3>
+      <button type="button" id="nextMonth" onclick="goNextMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">›</button>
+    </div>
+    <div class="glass workdays-info" id="workdaysInfo"></div>
+    <div class="glass week-bar" id="weekBar"></div>
+    <div class="glass" style="overflow-x:auto;padding:8px">
+      <table class="days-table">
+        <thead><tr>
+          <th data-col="date" data-i18n="col_date">Data</th>
+          <th data-col="start" data-i18n="col_start">Start</th>
+          <th data-col="end" data-i18n="col_end">Koniec</th>
+          <th data-col="pause" data-i18n="col_pause">Przerwa</th>
+          <th data-col="hours" data-i18n="col_hours">Godz.</th>
+          <th data-col="ot" data-i18n="col_ot">Nadg.</th>
+          <th data-col="dieta" data-i18n="col_dieta">Dieta</th>
+        </tr></thead>
+        <tbody id="daysBody"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;text-align:center;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+      <button class="btn" id="btnTodayDay" type="button">📅 Dziś</button>
+      <button class="btn" id="addDayBtn" data-i18n="add_day">+ Dodaj dzień</button>
+    </div>
+  </div>
+
+  <!-- KALENDARZ -->
+  <div id="panel-calendar" class="panel">
+    <div class="glass month-bar">
+      <button type="button" id="calPrev" onclick="goPrevMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">‹</button>
+      <h3 id="calLabel">Październik 2026</h3>
+      <button type="button" id="calNext" onclick="goNextMonth()" style="min-width:48px;min-height:48px;font-size:1.4rem;cursor:pointer">›</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button type="button" class="btn btn-sm" id="calViewMonth" onclick="setCalView('month')" data-i18n="view_month">Miesiąc</button>
+      <button type="button" class="btn btn-sm btn-secondary" id="calViewWeek" onclick="setCalView('week')" data-i18n="view_week">Tydzień</button>
+      <button class="btn btn-sm btn-secondary" id="calAddEvent" data-i18n="add_event">+ Wydarzenie</button>
+    </div>
+    <div class="glass" style="padding:10px">
+      <div class="cal-grid" id="calHead"></div>
+      <div class="cal-grid" id="calBody" style="margin-top:4px"></div>
+    </div>
+    <div class="glass info-box" style="margin-top:10px" id="calLegend">
+      <span style="background:var(--feiertag);padding:2px 6px;border-radius:4px">Święto</span>
+      <span style="background:rgba(100,200,150,0.3);padding:2px 6px;border-radius:4px;margin-left:6px">Ferie</span>
+      <span style="margin-left:6px">• własne wydarzenie</span>
+    </div>
+    <div id="calDayDetail" class="glass" style="padding:12px;margin-top:10px;display:none"></div>
+  </div>
+
+  <!-- ROK -->
+  <div id="panel-summary" class="panel">
+    <div class="glass" style="padding:12px">
+      <h3 style="margin-bottom:12px"><span data-i18n="year_sum">Podsumowanie roku</span> <span id="summaryYear"></span></h3>
+      <table style="width:100%;font-size:0.85rem;border-collapse:collapse" id="summaryTable">
+        <thead><tr><th data-i18n="month">Miesiąc</th><th>Godz.</th><th>Nadg.</th><th>Diety</th><th data-i18n="earn">Zarobek</th></tr></thead>
+        <tbody id="summaryBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" id="exportExcelBtn" data-i18n="export_xlsx">Eksport Excel</button>
+      <button class="btn btn-secondary" id="exportJsonBtn" data-i18n="export_json">Zapisz JSON</button>
+      <button class="btn btn-secondary" id="importJsonBtn" data-i18n="import_json">Wczytaj JSON</button>
+      <input type="file" id="importFile" accept=".json,.xlsx,.xls" style="display:none">
+    </div>
+  </div>
+
+  <!-- USTAWIENIA -->
+  <div id="panel-settings" class="panel">
+    <div class="glass" style="padding:16px">
+      <div class="settings-section">
+        <h4 data-i18n="personal">Dane osobowe</h4>
+        <div class="form-group"><label data-i18n="app_name">Nazwa aplikacji</label><input type="text" id="setAppName"></div>
+        <div class="form-group"><label data-i18n="first_name">Imię</label><input type="text" id="setFirstName"></div>
+        <div class="form-group"><label data-i18n="last_name">Nazwisko</label><input type="text" id="setLastName"></div>
+        <div class="form-group"><label data-i18n="workplace">Miejsce pracy</label><input type="text" id="setWorkplace"></div>
+        <div class="form-group"><label>Miasto (wschód/zachód słońca)</label>
+          <select id="setSunCity" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+            <option value="dresden">Drezno (Dresden)</option>
+            <option value="leipzig">Lipsk (Leipzig)</option>
+            <option value="chemnitz">Chemnitz</option>
+            <option value="zwickau">Zwickau</option>
+          </select>
+        </div>
+        <div class="form-group"><label data-i18n="rate">Stawka (€/h)</label><input type="number" id="setRate" step="0.01" value="15"></div>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="lang">Język / Sprache</h4>
+        <select id="setLang" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="pl">Polski</option>
+          <option value="de">Deutsch</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="theme">Motyw kolorystyczny</h4>
+        <select id="setTheme" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
+          <option value="aero">Windows Aero (Vista)</option>
+          <option value="xp">Windows XP</option>
+          <option value="graphite">Grafit (stonowany)</option>
+          <option value="olive">Oliwkowy (stonowany)</option>
+          <option value="slate">Łupkowy niebieski</option>
+          <option value="sand">Piaskowy</option>
+          <option value="midnight">Północny (ciemny)</option>
+          <option value="soft">Miękki jasny</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="columns">Kolumny w zakładce Dni</h4>
+        <div class="checkbox-row"><input type="checkbox" id="colStart" checked><label>Start</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colEnd" checked><label>Koniec</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colPause" checked><label data-i18n="col_pause">Przerwa</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colHours" checked><label data-i18n="col_hours">Godziny</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colOt" checked><label data-i18n="col_ot">Nadgodziny</label></div>
+        <div class="checkbox-row"><input type="checkbox" id="colDieta" checked><label data-i18n="col_dieta">Dieta</label></div>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="auto_pause">Automatyczna przerwa (ArbZG)</h4>
+        <div class="checkbox-row"><input type="checkbox" id="setAutoPause" checked><label data-i18n="enable_auto">Włącz auto-przerwę</label></div>
+      </div>
+      <div class="settings-section">
+        <h4>☁️ Google Drive – synchronizacja</h4>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">
+          Zaloguj się kontem Google. Dane aktywnego profilu zapiszą się na Twoim Dysku (folder aplikacji).
+        </p>
+        <div class="form-group">
+          <label>Client ID (z Google Cloud)</label>
+          <input type="text" id="gdriveClientId" placeholder="xxxxx.apps.googleusercontent.com" style="width:100%;font-size:0.85rem">
+        </div>
+        <p id="gdriveUser" style="font-size:0.85rem;color:var(--muted);margin:6px 0">Nie zalogowano</p>
+        <p id="syncStatus" style="font-size:0.9rem;color:var(--warning);margin:8px 0;min-height:1.4em;font-weight:600"></p>
+        <button class="btn btn-sm" id="gdriveLoginBtn" type="button" onclick="gdriveLogin()" style="width:100%;margin-bottom:6px">🔑 Zaloguj przez Google</button>
+        <button class="btn btn-sm" id="gdrivePushBtn" type="button" onclick="gdrivePush(false)" style="width:100%;margin-bottom:6px">⬆ Zapisz na Dysku Google</button>
+        <button class="btn btn-sm btn-secondary" id="gdrivePullBtn" type="button" onclick="gdrivePull(false)" style="width:100%;margin-bottom:6px">⬇ Wczytaj z Dysku Google</button>
+        <button class="btn btn-sm btn-secondary" id="gdriveLogoutBtn" type="button" onclick="gdriveLogout()" style="width:100%;margin-bottom:10px">Wyloguj Google</button>
+        <div class="checkbox-row"><input type="checkbox" id="syncEnabled"><label>Auto-zapis na Drive przy zapisie dnia</label></div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:6px">Bez Google – wymiana ręczna:</p>
+        <button class="btn btn-sm btn-secondary" id="syncCopyPackBtn" type="button" onclick="syncCopyPack()" style="width:100%;margin-bottom:6px">📋 Kopiuj kod danych</button>
+        <button class="btn btn-sm btn-secondary" id="syncPastePackBtn" type="button" onclick="syncPastePack()" style="width:100%">📥 Wklej kod danych</button>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="cloud">Chmura / Export-Import</h4>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:8px">
+          Eksportuj do Excela, edytuj na komputerze i wczytaj z powrotem. PDF tylko do podglądu/druku.
+        </p>
+        <button class="btn btn-sm" id="setExportExcel" type="button">Eksport Excel (.xlsx)</button>
+        <button class="btn btn-sm btn-secondary" id="setExcelTemplate" type="button">Szablon Excel (pusty miesiąc)</button>
+        <button class="btn btn-sm btn-secondary" id="setImportExcel" type="button">Import Excel (przywróć)</button>
+        <button class="btn btn-sm btn-secondary" id="setExportJson" type="button">Zapisz JSON</button>
+        <button class="btn btn-sm btn-secondary" id="setImport" type="button">Wczytaj JSON</button>
+        <button class="btn btn-sm btn-secondary" id="setExportPdf" type="button" style="margin-top:6px">Eksport PDF (miesiąc)</button>
+        <button class="btn btn-sm btn-secondary" id="setBackupNow" type="button" style="margin-top:6px">Backup JSON teraz</button>
+        <input type="file" id="importExcelFile" accept=".xlsx,.xls" style="display:none">
+      </div>
+      <div class="settings-section">
+        <h4>Przypomnienia</h4>
+        <div class="checkbox-row"><input type="checkbox" id="setRemind"><label>Przypominaj o brakujących wpisach</label></div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-top:4px">Przy starcie aplikacji sprawdza wczorajszy dzień roboczy.</p>
+      </div>
+      <div class="settings-section">
+        <h4 data-i18n="data">Dane</h4>
+        <button class="btn btn-danger btn-sm" id="clearDataBtn" data-i18n="clear">Usuń wszystkie wpisy</button>
+      </div>
+      <button class="btn" id="saveSettingsBtn" style="width:100%;margin-top:8px" data-i18n="save">Zapisz</button>
+      <div class="author">Autor: Cichocki Tomasz</div>
+    </div>
+  </div>
+</main>
+
+<div class="bottom-bar">
+  <div class="item"><div class="val" id="barHours">0:00 h</div><div data-i18n="hours">Godziny</div></div>
+  <div class="item"><div class="val" id="barOT">0:00 h</div><div data-i18n="ot_short">Nadgodz.</div></div>
+  <div class="item"><div class="val" id="barDieta">0,00 €</div><div data-i18n="dieta">Diety</div></div>
+  <div class="item"><div class="val" id="barTotal">0,00 €</div><div data-i18n="total_short">Razem</div></div>
+</div>
+
+<!-- DAY MODAL -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal glass">
+    <h3 id="modalTitle">Edycja dnia</h3>
+    <div class="form-group"><label data-i18n="col_date">Data</label><input type="date" id="editDate"></div>
+    <div class="status-btns" id="statusBtns">
+      <button data-status="work">🛠️ Praca</button>
+      <button data-status="urlaub">🌴 Urlop</button>
+      <button data-status="krank">🤒 Chorobowe</button>
+      <button data-status="fza">🔄 FZA</button>
+      <button data-status="wolny">🏠 Wolny</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <button type="button" class="btn btn-sm btn-secondary" id="btnCopyYesterday" style="width:100%">📋 Kopiuj poprzedni dzień roboczy</button>
+    </div>
+    <div id="workFields">
+      <div class="quick-templates" id="shiftTemplates">
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="06:00-14:30">6:00–14:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="07:00-15:30">7:00–15:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="08:00-16:30">8:00–16:30</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="14:00-22:00">14:00–22:00</button>
+        <button type="button" class="btn btn-sm btn-secondary" data-shift="22:00-06:00">22:00–6:00</button>
+      </div>
+      <div class="form-row">
+        <div class="time-row">
+          <div class="form-group">
+            <label data-i18n="col_start">⏱ Start</label>
+            <input type="time" id="editStart" value="06:00" step="60">
+          </div>
+          <div class="form-group">
+            <label data-i18n="col_end">⏱ Koniec</label>
+            <input type="time" id="editEnd" value="15:30" step="60">
+          </div>
+        </div>
+      </div>
+      <div class="pause-section">
+        <div class="pause-header" id="pauseToggle">
+          <span>Przerwa: <strong id="pauseSummary">0:00</strong></span>
+          <span style="color:var(--accent)" id="pauseToggleText">▼</span>
+        </div>
+        <div class="pause-body" id="pauseBody">
+          <div class="form-group">
+            <label>Czas przerwy (godz : min)</label>
+            <div class="pause-hm">
+              <input type="number" id="editPauseH" min="0" max="12" value="0" title="Godziny">
+              <span class="sep">:</span>
+              <input type="number" id="editPauseM" min="0" max="59" value="0" title="Minuty">
+            </div>
+            <input type="hidden" id="editPause" value="0">
+          </div>
+          <div class="checkbox-row" style="margin-top:8px"><input type="checkbox" id="editAutoPause"><label>Auto ArbZG (&gt;6h → 30 min, &gt;9h → 45 min)</label></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label data-i18n="col_dieta">Dieta</label>
+      <div class="dieta-btns" id="dietaBtns">
+        <button data-dieta="0">0 €</button>
+        <button data-dieta="14">14 €</button>
+        <button data-dieta="28">28 €</button>
+      </div>
+    </div>
+    <div class="form-group"><label data-i18n="note">Notatka</label><input type="text" id="editNote"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="deleteDayBtn" data-i18n="delete">Usuń</button>
+      <button class="btn btn-secondary" id="cancelDayBtn" data-i18n="cancel">Anuluj</button>
+      <button class="btn btn-success" id="saveDayBtn" data-i18n="save">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<!-- EVENT MODAL -->
+<div class="modal-overlay" id="eventModal">
+  <div class="modal glass">
+    <h3 id="evModalTitle">Własne wydarzenie</h3>
+    <div class="form-group"><label data-i18n="col_date">Data</label><input type="date" id="evDate"></div>
+    <div class="form-group"><label data-i18n="title">Tytuł</label><input type="text" id="evTitle" placeholder="np. Spotkanie, Wizyta..."></div>
+    <div class="form-group"><label data-i18n="desc">Opis</label><input type="text" id="evDesc" placeholder="Opcjonalnie"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="evDelete" style="display:none">Usuń</button>
+      <button class="btn btn-secondary" id="evCancel" data-i18n="cancel">Anuluj</button>
+      <button class="btn btn-success" id="evSave" data-i18n="save">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'ewidencja_v4';
+const i18n = {
+  pl: {
+    tab_home:'Start', tab_days:'Dni', tab_cal:'Kalendarz', tab_year:'Rok', tab_set:'Ustawienia',
+    hours_year:'Godziny (rok)', ot:'Nadgodziny', earn:'Zarobek', dieta:'Diety', total:'Razem do wypłaty',
+    col_date:'Data', col_start:'Start', col_end:'Koniec', col_pause:'Przerwa', col_hours:'Godz.', col_ot:'Nadg.', col_dieta:'Dieta',
+    add_day:'+ Dodaj dzień', year_sum:'Podsumowanie roku', month:'Miesiąc', export_xlsx:'Eksport Excel',
+    export_json:'Zapisz JSON', import_json:'Wczytaj plik', personal:'Dane osobowe', app_name:'Nazwa aplikacji',
+    first_name:'Imię', last_name:'Nazwisko', workplace:'Miejsce pracy', rate:'Stawka (€/h)',
+    lang:'Język', theme:'Motyw kolorystyczny', columns:'Kolumny w zakładce Dni', auto_pause:'Automatyczna przerwa (ArbZG)',
+    enable_auto:'Włącz auto-przerwę', cloud:'Chmura / Export-Import', cloud_info:'Zapisz JSON lub Excel i umieść w Google Drive. Aby przywrócić – wczytaj plik.',
+    data:'Dane', clear:'Usuń wszystkie wpisy', save:'Zapisz ustawienia', hours:'Godziny', ot_short:'Nadgodz.', total_short:'Razem',
+    note:'Notatka', delete:'Usuń', cancel:'Anuluj', view_month:'Miesiąc', view_week:'Tydzień', add_event:'+ Wydarzenie',
+    title:'Tytuł', desc:'Opis'
+  },
+  de: {
+    tab_home:'Start', tab_days:'Tage', tab_cal:'Kalender', tab_year:'Jahr', tab_set:'Einstellungen',
+    hours_year:'Stunden (Jahr)', ot:'Überstunden', earn:'Verdienst', dieta:'Spesen', total:'Gesamtauszahlung',
+    col_date:'Datum', col_start:'Beginn', col_end:'Ende', col_pause:'Pause', col_hours:'Std.', col_ot:'Üstd.', col_dieta:'Spesen',
+    add_day:'+ Tag hinzufügen', year_sum:'Jahresübersicht', month:'Monat', export_xlsx:'Excel exportieren',
+    export_json:'JSON speichern', import_json:'Datei laden', personal:'Persönliche Daten', app_name:'App-Name',
+    first_name:'Vorname', last_name:'Nachname', workplace:'Arbeitsort', rate:'Stundensatz (€/h)',
+    lang:'Sprache', theme:'Farbschema', columns:'Spalten in Tage', auto_pause:'Automatische Pause (ArbZG)',
+    enable_auto:'Auto-Pause aktivieren', cloud:'Cloud / Export-Import', cloud_info:'JSON oder Excel speichern und in Google Drive ablegen. Zum Wiederherstellen Datei laden.',
+    data:'Daten', clear:'Alle Einträge löschen', save:'Einstellungen speichern', hours:'Stunden', ot_short:'Überstd.', total_short:'Gesamt',
+    note:'Notiz', delete:'Löschen', cancel:'Abbrechen', view_month:'Monat', view_week:'Woche', add_event:'+ Ereignis',
+    title:'Titel', desc:'Beschreibung'
+  }
+};
+
+let state = {
+  year: new Date().getFullYear(), month: new Date().getMonth(),
+  settings: {
+    appName:'Ewidencja czasu', firstName:'', lastName:'', workplace:'', rate:15,
+    autoPause:true, lang:'pl', theme:'aero', syncCode:'', syncEnabled:false,
+    cols:{ start:true, end:true, pause:true, hours:true, ot:true, dieta:true }
+  },
+  days: {}, events: {}, updatedAt: 0
+};
+let profilesDB = { activeId: null, profiles: {} };
+
+
+const DAY_NAMES = { pl:['Nd','Pn','Wt','Śr','Cz','Pt','So'], de:['So','Mo','Di','Mi','Do','Fr','Sa'] };
+const DAY_FULL = { pl:['Niedziela','Poniedziałek','Wtorek','Środa','Czwartek','Piątek','Sobota'], de:['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'] };
+const MONTHS = {
+  pl:['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'],
+  de:['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember']
+};
+const STATUS_ICON = { work:'🛠️', urlaub:'🌴', krank:'🤒', fza:'🔄', wolny:'🏠' };
+
+const FIXED_HOLIDAYS = {
+  '01-01':{pl:'Nowy Rok',de:'Neujahr'}, '05-01':{pl:'Święto Pracy',de:'Tag der Arbeit'},
+  '10-03':{pl:'Dzień Jedności Niemiec',de:'Tag der Deutschen Einheit'},
+  '10-31':{pl:'Dzień Reformacji',de:'Reformationstag'},
+  '12-25':{pl:'1. Boże Narodzenie',de:'1. Weihnachtstag'}, '12-26':{pl:'2. Boże Narodzenie',de:'2. Weihnachtstag'}
+};
+
+// School holidays Sachsen (approx known periods + extensible)
+const FERIEN = [
+  {from:'2026-02-09',to:'2026-02-21',name:{pl:'Ferie zimowe',de:'Winterferien'}},
+  {from:'2026-04-03',to:'2026-04-10',name:{pl:'Ferie wielkanocne',de:'Osterferien'}},
+  {from:'2026-07-04',to:'2026-08-14',name:{pl:'Ferie letnie',de:'Sommerferien'}},
+  {from:'2026-10-12',to:'2026-10-24',name:{pl:'Ferie jesienne',de:'Herbstferien'}},
+  {from:'2026-12-23',to:'2027-01-02',name:{pl:'Ferie świąteczne',de:'Weihnachtsferien'}},
+  {from:'2027-02-08',to:'2027-02-19',name:{pl:'Ferie zimowe',de:'Winterferien'}},
+  {from:'2027-03-26',to:'2027-04-02',name:{pl:'Ferie wielkanocne',de:'Osterferien'}},
+  {from:'2027-05-15',to:'2027-05-18',name:{pl:'Ferie zielone',de:'Pfingstferien'}},
+  {from:'2027-07-10',to:'2027-08-20',name:{pl:'Ferie letnie',de:'Sommerferien'}},
+  {from:'2027-10-11',to:'2027-10-23',name:{pl:'Ferie jesienne',de:'Herbstferien'}},
+  {from:'2027-12-23',to:'2028-01-01',name:{pl:'Ferie świąteczne',de:'Weihnachtsferien'}}
+];
+
+function t(key){ return (i18n[state.settings.lang]||i18n.pl)[key]||key; }
+function pad(n){ return String(n).padStart(2,'0'); }
+
+function toLocalDateStr(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
+
+// Saksonia – miasta do wschodu/zachodu (offline)
+const SUN_CITIES = {
+  dresden:  { lat: 51.05, lon: 13.74, name: 'Drezno' },
+  leipzig:  { lat: 51.34, lon: 12.37, name: 'Lipsk' },
+  chemnitz: { lat: 50.83, lon: 12.92, name: 'Chemnitz' },
+  zwickau:  { lat: 50.72, lon: 12.50, name: 'Zwickau' }
+};
+function getSunCoords(){
+  const key = (state.settings && state.settings.sunCity) || 'dresden';
+  return SUN_CITIES[key] || SUN_CITIES.dresden;
+}
+
+/** Oblicz wschód/zachód lokalny (HH:MM) – algorytm przybliżony NOAA */
+function calcSunTimes(date, lat, lon){
+  const rad = Math.PI/180;
+  const day = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+  const n = Math.floor(day.getTime()/86400000) + 2440587.5 - 2451545.0 + 0.0008;
+  // Julian century etc simplified
+  const Jdate = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000 + 2440587.5;
+  const n2 = Jdate - 2451545.0 + 0.0008;
+  const Jstar = n2 - lon/360;
+  const M = (357.5291 + 0.98560028 * Jstar) % 360;
+  const C = 1.9148*Math.sin(M*rad) + 0.02*Math.sin(2*M*rad) + 0.0003*Math.sin(3*M*rad);
+  const lambda = (M + C + 180 + 102.9372) % 360;
+  const Jtransit = 2451545.0 + Jstar + 0.0053*Math.sin(M*rad) - 0.0069*Math.sin(2*lambda*rad);
+  const sinDec = Math.sin(lambda*rad) * Math.sin(23.44*rad);
+  const cosDec = Math.cos(Math.asin(sinDec));
+  const cosH = (Math.sin(-0.83*rad) - Math.sin(lat*rad)*sinDec) / (Math.cos(lat*rad)*cosDec);
+  if(cosH < -1 || cosH > 1) return { rise:'–', set:'–' };
+  const H = Math.acos(cosH) / rad;
+  const Jrise = Jtransit - H/360;
+  const Jset = Jtransit + H/360;
+  function julToLocalHM(J){
+    // J to UTC ms
+    const ms = (J - 2440587.5) * 86400000;
+    const d = new Date(ms);
+    // local time for Europe/Berlin approximation: use local timezone of device
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return hh+':'+mm;
+  }
+  return { rise: julToLocalHM(Jrise), set: julToLocalHM(Jset) };
+}
+
+/** Polskie imieniny – skrócona mapa MM-DD → imiona */
+const IMIENINY = {
+'01-01':'Mieczysław, Maria','01-02':'Bazyl, Makary','01-03':'Danuta, Genowefa','01-04':'Tytus, Aniela','01-05':'Edward, Szymon',
+'01-06':'Kacper, Melchior','01-07':'Lucjan, Julian','01-08':'Seweryn, Mścisław','01-09':'Adrian, Antoni','01-10':'Jan, Nestor',
+'01-11':'Matylda, Feliks','01-12':'Benedykt, Arkadiusz','01-13':'Bogumił, Weronika','01-14':'Feliks, Nina','01-15':'Paweł, Izydor',
+'01-16':'Marcel, Włodzimierz','01-17':'Antoni, Jan','01-18':'Piotr, Małgorzata','01-19':'Henryk, Mariusz','01-20':'Fabian, Sebastian',
+'01-21':'Agnieszka, Jarosław','01-22':'Anastazy, Wincenty','01-23':'Ildefons, Rajmund','01-24':'Felicja, Rafał','01-25':'Paweł, Miłosz',
+'01-26':'Tymoteusz, Michał','01-27':'Aniela, Jan','01-28':'Agnieszka, Radomir','01-29':'Zdzisław, Franciszek','01-30':'Martyna, Maciej',
+'01-31':'Jan, Luiza',
+'02-01':'Brygida, Ignacy','02-02':'Maria, Miłosław','02-03':'Błażej, Oskar','02-04':'Andrzej, Joanna','02-05':'Agata, Adelajda',
+'02-06':'Dorota, Bogdan','02-07':'Ryszard, Teodor','02-08':'Jacek, Sebastian','02-09':'Apolonia, Eryk','02-10':'Elwira, Scholastyka',
+'02-11':'Mariusz, Lucjan','02-12':'Julian, Eulalia','02-13':'Grzegorz, Katarzyna','02-14':'Walenty, Metod','02-15':'Jowita, Georg',
+'02-16':'Danuta, Julian','02-17':'Aleksego, Łukasz','02-18':'Szymon, Konstancja','02-19':'Konrad, Arnold','02-20':'Leon, Ludmiła',
+'02-21':'Eleonora, Kiejstut','02-22':'Marta, Małgorzata','02-23':'Romana, Damian','02-24':'Maciej, Bogusz','02-25':'Wiktor, Cezary',
+'02-26':'Mirosław, Aleksander','02-27':'Gabriel, Anastazja','02-28':'Roman, Ludomir','02-29':'Roman, Oswald',
+'03-01':'Albina, Antoni','03-02':'Helena, Halszka','03-03':'Maryna, Kunegunda','03-04':'Kazimierz, Eugeniusz','03-05':'Adrian, Oliwier',
+'03-06':'Róża, Wiktor','03-07':'Tomasz, Felicja','03-08':'Beata, Jan','03-09':'Franciszka, Dominik','03-10':'Cyprian, Marceli',
+'03-11':'Konstanty, Benedykt','03-12':'Grzegorz, Justyna','03-13':'Bożena, Krystyna','03-14':'Leon, Matylda','03-15':'Longin, Klemens',
+'03-16':'Herbert, Izabela','03-17':'Patryk, Zbigniew','03-18':'Cyryl, Edward','03-19':'Józef, Bogdan','03-20':'Klaudia, Eufemia',
+'03-21':'Filemon, Benedykt','03-22':'Bogusław, Katarzyna','03-23':'Pelagia, Oktawia','03-24':'Gabriel, Marek','03-25':'Maria, Ireneusz',
+'03-26':'Emanuel, Teodor','03-27':'Lidia, Ernest','03-28':'Aniela, Jan','03-29':'Wiktoryn, Eustachy','03-30':'Aniela, Leonard',
+'03-31':'Beniamin, Balbina',
+'04-01':'Grażyna, Zbigniew','04-02':'Władysław, Franciszek','04-03':'Ryszard, Ireneusz','04-04':'Benedykt, Izydor','04-05':'Irena, Wincenty',
+'04-06':'Izolda, Wilhelm','04-07':'Donat, Rufin','04-08':'Cezary, January','04-09':'Maja, Dobrosława','04-10':'Michał, Makary',
+'04-11':'Leon, Gemma','04-12':'Juliusz, Zenon','04-13':'Przemysław, Ida','04-14':'Walery, Bernadetta','04-15':'Wacław, Anastazja',
+'04-16':'Benedykt, Bernadetta','04-17':'Robert, Rudolf','04-18':'Bogusław, Apoloniusz','04-19':'Adolf, Tymon','04-20':'Agnieszka, Czesław',
+'04-21':'Anzelm, Bartosz','04-22':'Łukasz, Kai','04-23':'Jorge, Wojciech','04-24':'Horacy, Jerzy','04-25':'Marek, Jarosław',
+'04-26':'Marzena, Klaudiusz','04-27':'Zydra, Andrzej','04-28':'Paweł, Waleria','04-29':'Rita, Augustyn','04-30':'Marian, Katarzyna',
+'05-01':'Józef, Jeremiasz','05-02':'Zygmunt, Anatol','05-03':'Maria, Aleksander','05-04':'Florian, Monika','05-05':'Irena, Waldemar',
+'05-06':'Judyt, Filipa','05-07':'Ludomiła, Benedykt','05-08':'Stanisław, Victor','05-09':'Grzegorz, Karolina','05-10':'Izydora, Antonina',
+'05-11':'Franciszek, Mamert','05-12':'Dominik, Pankracy','05-13':'Serwacy, Gloria','05-14':'Bonifacy, Maciej','05-15':'Zofia, Jan',
+'05-16':'Andrzej, Jędrzej','05-17':'Paschalis, Sławomir','05-18':'Eryk, Feliks','05-19':'Piotr, Iwo','05-20':'Bernardyn, Bazyli',
+'05-21':'Jan, Tymoteusz','05-22':'Helena, Wiesława','05-23':'Iwona, Michał','05-24':'Joanna, Zuzanna','05-25':'Grzegorz, Urban',
+'05-26':'Filip, Paulina','05-27':'Augustyn, Magdalena','05-28':'Jaromir, Wiktor','05-29':'Magdalena, Bogusława','05-30':'Ferdynand, Jan',
+'05-31':'Aniela, Petronela',
+'06-01':'Jakub, Konrad','06-02':'Marianna, Mikołaj','06-03':'Leszek, Tamara','06-04':'Karol, Franciszek','06-05':'Bonifacy, Walter',
+'06-06':'Norbert, Paulina','06-07':'Robert, Wiesław','06-08':'Medard, Wilhelm','06-09':'Pelagia, Felicjan','06-10':'Bogumił, Małgorzata',
+'06-11':'Barnaba, Feliks','06-12':'Onufry, Leon','06-13':'Antina, Lucjan','06-14':'Bazyli, Eliza','06-15':'Wit, Jolanta',
+'06-16':'Alina, Benon','06-17':'Laura, Adolf','06-18':'Marek, Elżbieta','06-19':'Gerwazy, Protazy','06-20':'Bogna, Florentyna',
+'06-21':'Alicja, Alojzy','06-22':'Paulina, Tomasz','06-23':'Wanda, Zenon','06-24':'Jan, Danuta','06-25':'Lucja, Dorota',
+'06-26':'Jan, Paweł','06-27':'Maria, Władysław','06-28':'Ireneusz, Leon','06-29':'Piotr, Paweł','06-30':'Emilia, Lucyna',
+'07-01':'Halina, Marian','07-02':'Jagoda, Urban','07-03':'Anatol, Jacek','07-04':'Teodor, Malwina','07-05':'Karolina, Antoni',
+'07-06':'Dominika, Łucja','07-07':'Cyryl, Estera','07-08':'Adrian, Edgar','07-09':'Lukrecja, Weronika','07-10':'Filip, Amelia',
+'07-11':'Olga, Benedykt','07-12':'Henryk, Jan','07-13':'Ernest, Małgorzata','07-14':'Bonawentura, Izabela','07-15':'Henryk, Dawid',
+'07-16':'Maria, Stefan','07-17':'Aleksego, Bogdan','07-18':'Kamil, Arnold','07-19':'Wincenty, Rufin','07-20':'Czesław, Hieronim',
+'07-21':'Daniel, Andrzej','07-22':'Maria Magdalena, Pankracy','07-23':'Bogna, Brygida','07-24':'Kinga, Krystyna','07-25':'Jakub, Krzysztof',
+'07-26':'Anna, Mirosława','07-27':'Lilia, Natalia','07-28':'Aida, Innocenty','07-29':'Marta, Olaf','07-30':'Julia, Ludmiła',
+'07-31':'Ignacy, Helena',
+'08-01':'Alfons, Nadzieja','08-02':'Karina, Gustaw','08-03':'Lidia, August','08-04':'Dominik, Jan','08-05':'Oswald, Maria',
+'08-06':'Sława, Jakub','08-07':'Kajetan, Dorota','08-08':'Cyprian, Emil','08-09':'Roman, Klara','08-10':'Borys, Wawrzyniec',
+'08-11':'Klara, Zuzanna','08-12':'Lech, Klara','08-13':'Diana, Hipolit','08-14':'Alfred, Maksymilian','08-15':'Maria, Napoleon',
+'08-16':'Joachim, Roch','08-17':'Anita, Jacek','08-18':'Ilona, Bronisław','08-19':'Bolesław, Julian','08-20':'Samuel, Bernard',
+'08-21':'Franciszek, Joanna','08-22':'Maria, Cezary','08-23':'Róża, Filip','08-24':'Bartłomiej, Jerzy','08-25':'Luiza, Michał',
+'08-26':'Maria, Zefiryn','08-27':'Monika, Cezary','08-28':'Augustyn, Patrycja','08-29':'Sabina, Racibor','08-30':'Róża, Szczęsny',
+'08-31':'Rajmund, Paulina',
+'09-01':'Bronisław, Idzi','09-02':'Stefan, Julian','09-03':'Izabela, Szymon','09-04':'Rozalia, Ida','09-05':'Dorota, Teodor',
+'09-06':'Beata, Eugeniusz','09-07':'Regina, Melchior','09-08':'Maria, Radosław','09-09':'Piotr, Serafina','09-10':'Łukasz, Mikołaj',
+'09-11':'Jacek, Dominik','09-12':'Maria, Gwidon','09-13':'Aleksander, Eugenia','09-14':'Ryszard, Bernard','09-15':'Albina, Nikodem',
+'09-16':'Edyta, Kornel','09-17':'Franciszek, Justyna','09-18':'Irma, Józef','09-19':'January, Konstancja','09-20':'Filipina, Eustachy',
+'09-21':'Mateusz, Hipolit','09-22':'Tomasz, Maurycy','09-23':'Tekla, Bogusław','09-24':'Gerard, Teodor','09-25':'Aurelia, Ładysław',
+'09-26':'Justyna, Cyprian','09-27':'Kosma, Damian','09-28':'Wacław, Marek','09-29':'Michał, Rafał','09-30':'Wera, Hieronim',
+'10-01':'Danuta, Remigiusz','10-02':'Teofil, Dionizy','10-03':'Teresa, Heliodor','10-04':'Rozalia, Franciszek','10-05':'Igor, Apolinary',
+'10-06':'Artur, Brunon','10-07':'Marek, Amelia','10-08':'Pelagia, Brygida','10-09':'Dionizy, Ludwik','10-10':'Franciszek, Paulina',
+'10-11':'Maria, Emil','10-12':'Eustachy, Maksymilian','10-13':'Edward, Teofil','10-14':'Kalikst, Fortunata','10-15':'Teresa, Brunon',
+'10-16':'Ambroży, Florentyna','10-17':'Małgorzata, Ignacy','10-18':'Łukasz, Julian','10-19':'Piotr, Ziemowit','10-20':'Irena, Jan',
+'10-21':'Urszula, Celina','10-22':'Filip, Seweryn','10-23':'Iga, Marlena','10-24':'Rafał, Antoni','10-25':'Daria, Kryspin',
+'10-26':'Lucjan, Ewaryst','10-27':'Iwona, Wincenty','10-28':'Szymon, Tadeusz','10-29':'Euzebia, Wioletta','10-30':'Zenobia, Przemysław',
+'10-31':'Lucylla, August',
+'11-01':'Jan, Andrzej','11-02':'Bohdan, Tobiasz','11-03':'Sylwia, Hubert','11-04':'Karol, Olgierd','11-05':'Sławomir, Elżbieta',
+'11-06':'Leonard, Feliks','11-07':'Antoni, Żytomir','11-08':'Severyn, Wiktor','11-09':'Ursyn, Teodor','11-10':'Lena, Andrzej',
+'11-11':'Martin, Anastazja','11-12':'Witold, Renata','11-13':'Stanisław, Mikołaj','11-14':'Emilia, Damian','11-15':'Albert, Leopold',
+'11-16':'Edmund, Gertruda','11-17':'Grzegorz, Salomea','11-18':'Roman, Klaudyna','11-19':'Elżbieta, Seweryna','11-20':'Edmund, Feliks',
+'11-21':'Janusz, Regina','11-22':'Cecylia, Marek','11-23':'Klemens, Adela','11-24':'Flora, Emilia','11-25':'Katarzyna, Erazm',
+'11-26':'Konrad, Sylwester','11-27':'Walerian, Maksymilian','11-28':'Lesław, Rufus','11-29':'Błażej, Saturnin','11-30':'Andrzej, Justina',
+'12-01':'Natalia, Blanka','12-02':'Balbina, Paulina','12-03':'Franciszek, Ksawery','12-04':'Barbara, Jan','12-05':'Sabina, Kryspin',
+'12-06':'Mikołaj, Emilian','12-07':'Ambroży, Marcin','12-08':'Maria, Wirginia','12-09':'Wiesław, Leokadia','12-10':'Julia, Daniel',
+'12-11':'Damazy, Waldemar','12-12':'Adelajda, Aleksander','12-13':'Łucja, Otylia','12-14':'Alfred, Izydor','12-15':'Nina, Celina',
+'12-16':'Albina, Zdzisława','12-17':'Łukasz, Olimpia','12-18':'Gracjan, Bogusław','12-19':'Gabriela, Dariusz','12-20':'Bogumiła, Dominik',
+'12-21':'Tomasz, Seweryn','12-22':'Zenon, Honorata','12-23':'Wiktoria, Sławomir','12-24':'Adam, Ewa','12-25':'Anastazja, Piotr',
+'12-26':'Szczepan, Dionizy','12-27':'Jan, Żaneta','12-28':'Cezary, Teofilia','12-29':'Tomasz, Dawid','12-30':'Dawid, Eugeniusz',
+'12-31':'Sebastian, Melania'
+};
+
+const IMIENINY_DE = {
+'01-01':'Wilhelm','01-02':'Gregor','01-03':'Irmina','01-04':'Angela','01-05':'Johannes',
+'01-06':'Melchior','01-07':'Raimund','01-08':'Severin','01-09':'Julian','01-10':'Wilhelm',
+'01-11':'Tatiana','01-12':'Reinhold','01-13':'Hilary','01-14':'Felix','01-15':'Maurus',
+'01-16':'Marcel','01-17':'Anton','01-18':'Priska','01-19':'Marius','01-20':'Fabian, Sebastian',
+'01-21':'Agnes','01-22':'Vinzenz','01-23':'Hartmut','01-24':'Franziska','01-25':'Paulus',
+'01-26':'Timotheus','01-27':'Angela','01-28':'Thomas','01-29':'Valerius','01-30':'Martina',
+'01-31':'Johannes',
+'02-01':'Brigitta','02-02':'Bodo','02-03':'Blasius','02-04':'Andreas','02-05':'Agatha',
+'02-06':'Dorothea','02-07':'Richard','02-08':'Hieronymus','02-09':'Apollonia','02-10':'Scholastika',
+'02-11':'Theodor','02-12':'Benedikt','02-13':'Christina','02-14':'Valentin','02-15':'Siegfried',
+'02-16':'Juliana','02-17':'Alexius','02-18':'Constanze','02-19':'Julian','02-20':'Leo',
+'02-21':'Petrus','02-22':'Marta','02-23':'Willigis','02-24':'Matthias','02-25':'Walburga',
+'02-26':'Nikodemus','02-27':'Gabriel','02-28':'Roman','02-29':'Oswald',
+'03-01':'Albin','03-02':'Agnes','03-03':'Kunigunde','03-04':'Kasimir','03-05':'Gerda',
+'03-06':'Fridolin','03-07':'Thomas','03-08':'Johannes','03-09':'Franziska','03-10':'Emil',
+'03-11':'Rosina','03-12':'Gregor','03-13':'Judith','03-14':'Mathilde','03-15':'Klemens',
+'03-16':'Herbert','03-17':'Patrick','03-18':'Cyrill','03-19':'Josef','03-20':'Wolfram',
+'03-21':'Benedikt','03-22':'Lea','03-23':'Otto','03-24':'Gabriel','03-25':'Maria',
+'03-26':'Ludger','03-27':'Rupert','03-28':'Guntram','03-29':'Berthold','03-30':'Amadeus',
+'03-31':'Cornelia',
+'04-01':'Hugo','04-02':'Franz','04-03':'Richard','04-04':'Benedikt','04-05':'Irene',
+'04-06':'Wilhelm','04-07':'Johann','04-08':'Walter','04-09':'Waltraud','04-10':'Ezechiel',
+'04-11':'Stanislaus','04-12':'Julius','04-13':'Martin','04-14':'Linhardt','04-15':'Wanda',
+'04-16':'Bernadette','04-17':'Rudolf','04-18':'Werner','04-19':'Leo','04-20':'Hildegunde',
+'04-21':'Konrad','04-22':'Wolfhard','04-23':'Georg','04-24':'Wilfried','04-25':'Markus',
+'04-26':'Trudpert','04-27':'Petrus','04-28':'Hugo','04-29':'Katharina','04-30':'Pius',
+'05-01':'Josef','05-02':'Boris','05-03':'Alexander','05-04':'Florian','05-05':'Gotthard',
+'05-06':'Friedhelm','05-07':'Gisela','05-08':'Ida','05-09':'Volkmar','05-10':'Isidor',
+'05-11':'Mamertus','05-12':'Pankratius','05-13':'Servatius','05-14':'Bonifatius','05-15':'Sophie',
+'05-16':'Johannes','05-17':'Paschalis','05-18':'Erich','05-19':'Ivo','05-20':'Bernhard',
+'05-21':'Hermann','05-22':'Julia','05-23':'Renate','05-24':'Esther','05-25':'Urban',
+'05-26':'Philipp','05-27':'Bruno','05-28':'Wilhelm','05-29':'Maximin','05-30':'Ferdinand',
+'05-31':'Petronilla',
+'06-01':'Ronan','06-02':'Marcellinus','06-03':'Karl','06-04':'Christa','06-05':'Bonifatius',
+'06-06':'Norbert','06-07':'Robert','06-08':'Medardus','06-09':'Ephram','06-10':'Heinz',
+'06-11':'Barnabas','06-12':'Guido','06-13':'Antonius','06-14':'Hartwig','06-15':'Vitus',
+'06-16':'Benno','06-17':'Adolf','06-18':'Elisabeth','06-19':'Juliana','06-20':'Silverius',
+'06-21':'Alban','06-22':'Thomas','06-23':'Edeltraud','06-24':'Johannes','06-25':'Dorothea',
+'06-26':'Johannes','06-27':'Helene','06-28':'Irenäus','06-29':'Peter, Paul','06-30':'Otto',
+'07-01':'Dietrich','07-02':'Wiltrud','07-03':'Thomas','07-04':'Ulrich','07-05':'Albrecht',
+'07-06':'Goar','07-07':'Willibald','07-08':'Kilian','07-09':'Vergilius','07-10':'Knud',
+'07-11':'Benedikt','07-12':'Helga','07-13':'Heinrich','07-14':'Camillus','07-15':'Bonaventura',
+'07-16':'Carmen','07-17':'Charlotte','07-18':'Arnulf','07-19':'Vincent','07-20':'Margareta',
+'07-21':'Daniel','07-22':'Maria Magdalena','07-23':'Birgitta','07-24':'Christoph','07-25':'Jakob',
+'07-26':'Anna','07-27':'Rudolf','07-28':'Ada','07-29':'Olaf','07-30':'Ingeborg',
+'07-31':'Ignatius',
+'08-01':'Alfons','08-02':'Eusebius','08-03':'Lydia','08-04':'Johann','08-05':'Oswald',
+'08-06':'Johann','08-07':'Afra','08-08':'Dominik','08-09':'Edith','08-10':'Laurentius',
+'08-11':'Klara','08-12':'Hilaria','08-13':'Cassian','08-14':'Maximilian','08-15':'Maria',
+'08-16':'Stefan','08-17':'Clara','08-18':'Helena','08-19':'Sebald','08-20':'Bernhard',
+'08-21':'Pius','08-22':'Regina','08-23':'Rosa','08-24':'Bartholomäus','08-25':'Ludwig',
+'08-26':'Miriam','08-27':'Monika','08-28':'Augustinus','08-29':'Sabina','08-30':'Felix',
+'08-31':'Raimund',
+'09-01':'Aegidius','09-02':'Ingrid','09-03':'Gregor','09-04':'Ida','09-05':'Roswitha',
+'09-06':'Magnus','09-07':'Regina','09-08':'Maria','09-09':'Otmar','09-10':'Nikolaus',
+'09-11':'Felix','09-12':'Maria','09-13':'Tobias','09-14':'Notburga','09-15':'Dolores',
+'09-16':'Ludmilla','09-17':'Hildegard','09-18':'Lambert','09-19':'Wilhelm','09-20':'Heribert',
+'09-21':'Matthäus','09-22':'Mauritius','09-23':'Linus','09-24':'Gerhard','09-25':'Serge',
+'09-26':'Kosmas','09-27':'Vinzenz','09-28':'Wenzel','09-29':'Michael, Gabriel, Raphael','09-30':'Hieronymus',
+'10-01':'Therese','10-02':'Gideon','10-03':'Bianka','10-04':'Franz','10-05':'Gallus',
+'10-06':'Bruno','10-07':'Markus','10-08':'Simeon','10-09':'Dionys','10-10':'Gereon',
+'10-11':'Burkhard','10-12':'Maximilian','10-13':'Koloman','10-14':'Burkhard','10-15':'Theresia',
+'10-16':'Hedwig','10-17':'Ignatius','10-18':'Lukas','10-19':'Paul','10-20':'Wendelin',
+'10-21':'Ursula','10-22':'Cordula','10-23':'Severin','10-24':'Anton','10-25':'Krispin',
+'10-26':'Wigand','10-27':'Sabina','10-28':'Simon, Judas','10-29':'Ermelindis','10-30':'Bernhard',
+'10-31':'Wolfgang',
+'11-01':'Rupert','11-02':'Angela','11-03':'Hubert','11-04':'Karl','11-05':'Zacharias',
+'11-06':'Lukas','11-07':'Willibrord','11-08':'Gottfried','11-09':'Theodor','11-10':'Leo',
+'11-11':'Martin','11-12':'Kunibert','11-13':'Stanislaus','11-14':'Sidonius','11-15':'Leopold',
+'11-16':'Margareta','11-17':'Gertrud','11-18':'Odo','11-19':'Elisabeth','11-20':'Bernward',
+'11-21':'Amelie','11-22':'Cäcilia','11-23':'Clemens','11-24':'Flora','11-25':'Katharina',
+'11-26':'Konrad','11-27':'Albrecht','11-28':'Günter','11-29':'Friedrich','11-30':'Andreas',
+'12-01':'Blanka','12-02':'Bibiana','12-03':'Franz Xaver','12-04':'Barbara','12-05':'Reinhold',
+'12-06':'Nikolaus','12-07':'Ambrosius','12-08':'Maria','12-09':'Pia','12-10':'Judas',
+'12-11':'Damasus','12-12':'Johanna','12-13':'Lucia','12-14':'Johannes','12-15':'Nina',
+'12-16':'Adelheid','12-17':'Lazarus','12-18':'Philipp','12-19':'Susanna','12-20':'Benjamin',
+'12-21':'Thomas','12-22':'Jutta','12-23':'Victoria','12-24':'Adam, Eva','12-25':'Anastasia',
+'12-26':'Stephan','12-27':'Johannes','12-28':'Tamara','12-29':'Tamara','12-30':'Felix',
+'12-31':'Silvester'
+};
+function getImieniny(date){
+  const key = pad(date.getMonth()+1)+'-'+pad(date.getDate());
+  const lang = (state.settings && state.settings.lang) || 'pl';
+  if(lang === 'de') return IMIENINY_DE[key] || '–';
+  return IMIENINY[key] || '–';
+}
+
+
+function formatHours(h){
+  if(h===undefined||h===null) return '–';
+  const sign = h<0?'-':'';
+  const abs = Math.abs(h);
+  const totalMin = Math.round(abs*60);
+  return sign + Math.floor(totalMin/60) + ':' + pad(totalMin%60);
+}
+function formatPause(mins){
+  mins=Math.round(+mins||0);
+  const h=Math.floor(mins/60), m=mins%60;
+  return h+':'+String(m).padStart(2,'0');
+}
+function formatMoney(n){ return n.toFixed(2).replace('.',',')+' €'; }
+
+function easterDate(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+  const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4;
+  const l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451);
+  const month=Math.floor((h+l-7*m+114)/31), day=((h+l-7*m+114)%31)+1;
+  return new Date(y,month-1,day);
+}
+function getSachsenHolidays(year){
+  const map={};
+  for(const [md,names] of Object.entries(FIXED_HOLIDAYS)) map[year+'-'+md]=names;
+  const easter=easterDate(year);
+  const add=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x;};
+  const fmt=d=>toLocalDateStr(d.getFullYear(),d.getMonth(),d.getDate());
+  map[fmt(add(easter,-2))]={pl:'Wielki Piątek',de:'Karfreitag'};
+  map[fmt(add(easter,1))]={pl:'Poniedziałek Wielkanocny',de:'Ostermontag'};
+  map[fmt(add(easter,39))]={pl:'Wniebowstąpienie',de:'Christi Himmelfahrt'};
+  map[fmt(add(easter,50))]={pl:'Zielone Świątki',de:'Pfingstmontag'};
+  let bus=new Date(year,10,23);
+  while(bus.getDay()!==3) bus.setDate(bus.getDate()-1);
+  map[fmt(bus)]={pl:'Dzień Pokuty',de:'Buß- und Bettag'};
+  return map;
+}
+let holidayCache={};
+function isHoliday(ds){
+  const y=+ds.slice(0,4);
+  if(!holidayCache[y]) holidayCache[y]=getSachsenHolidays(y);
+  return holidayCache[y][ds]||null;
+}
+function isFerien(ds){
+  for(const f of FERIEN){
+    if(ds>=f.from && ds<=f.to) return f.name;
+  }
+  return null;
+}
+
+
+// ===== Sync: clipboard pack + optional GitHub =====
+function setSyncStatus(msg, ok){
+  const el = document.getElementById('syncStatus');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.color = ok === false ? 'var(--danger)' : (ok ? 'var(--success)' : 'var(--muted)');
+}
+
+// ===== Google Drive sync =====
+let _gdriveToken = null;
+let _gdriveTokenClient = null;
+let _gdriveFileIds = {}; // profileId -> fileId cache
+
+function gdriveGetClientId(){
+  let id = (document.getElementById('gdriveClientId')?.value || state.settings?.gdriveClientId || '').trim();
+  id = id.replace(/[\s\u200B-\u200D\uFEFF]/g,'');
+  return id;
+}
+
+function gdriveEnsureClient(){
+  const clientId = gdriveGetClientId();
+  if(!clientId){
+    alert('Wklej najpierw Client ID z Google Cloud (końcówka .apps.googleusercontent.com). Instrukcja poniżej w opisie.');
+    return null;
+  }
+  if(typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2){
+    alert('Biblioteka Google jeszcze się ładuje – poczekaj 2 sekundy i kliknij ponownie.');
+    return null;
+  }
+  if(!_gdriveTokenClient || _gdriveTokenClient._clientId !== clientId){
+    _gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.appdata',
+      callback: () => {}
+    });
+    _gdriveTokenClient._clientId = clientId;
+  }
+  return _gdriveTokenClient;
+}
+
+function gdriveLogin(){
+  const client = gdriveEnsureClient();
+  if(!client) return;
+  setSyncStatus('Otwieranie logowania Google…');
+  client.callback = (resp) => {
+    if(resp.error){
+      setSyncStatus('Logowanie anulowane lub błąd: '+resp.error, false);
+      alert('Logowanie Google: '+resp.error);
+      return;
+    }
+    _gdriveToken = resp.access_token;
+    state.settings.gdriveClientId = gdriveGetClientId();
+    saveState();
+    document.getElementById('gdriveUser').textContent = 'Zalogowano w Google ✓';
+    setSyncStatus('Zalogowano – możesz Zapisać / Wczytać', true);
+  };
+  client.requestAccessToken({ prompt: 'consent' });
+}
+
+function gdriveLogout(){
+  if(_gdriveToken && typeof google !== 'undefined' && google.accounts?.oauth2?.revoke){
+    google.accounts.oauth2.revoke(_gdriveToken, ()=>{});
+  }
+  _gdriveToken = null;
+  _gdriveFileIds = {};
+  const el = document.getElementById('gdriveUser');
+  if(el) el.textContent = 'Nie zalogowano';
+  setSyncStatus('Wylogowano z Google', true);
+}
+
+async function gdriveFetch(path, options={}){
+  if(!_gdriveToken){
+    throw new Error('Najpierw kliknij „Zaloguj przez Google”');
+  }
+  const url = path.startsWith('http') ? path : ('https://www.googleapis.com'+path);
+  const headers = Object.assign({}, options.headers||{}, {
+    'Authorization': 'Bearer '+_gdriveToken
+  });
+  const res = await fetch(url, Object.assign({}, options, { headers }));
+  if(res.status === 401){
+    _gdriveToken = null;
+    throw new Error('Sesja wygasła – zaloguj się ponownie przez Google');
+  }
+  return res;
+}
+
+async function gdriveFindFile(name){
+  const q = encodeURIComponent("name='"+name.replace(/'/g,"\\'")+"' and 'appDataFolder' in parents and trashed=false");
+  const res = await gdriveFetch('/drive/v3/files?spaces=appDataFolder&q='+q+'&fields=files(id,name)');
+  if(!res.ok) throw new Error('Drive list: '+res.status);
+  const j = await res.json();
+  return (j.files && j.files[0]) ? j.files[0].id : null;
+}
+
+async function gdrivePush(silent){
+  try{
+    if(!_gdriveToken){
+      const msg = 'Najpierw: Zaloguj przez Google';
+      setSyncStatus(msg, false);
+      if(!silent) alert(msg);
+      return;
+    }
+    if(!silent) setSyncStatus('Zapis na Dysku Google…');
+    const pid = (profilesDB && profilesDB.activeId) ? String(profilesDB.activeId) : 'default';
+    const name = 'ewidencja-'+pid+'.json';
+    const pack = buildPack();
+    const bodyStr = JSON.stringify(pack);
+    let fileId = _gdriveFileIds[pid] || await gdriveFindFile(name);
+    let res;
+    if(fileId){
+      res = await gdriveFetch('https://www.googleapis.com/upload/drive/v3/files/'+fileId+'?uploadType=media', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: bodyStr
+      });
+    } else {
+      const meta = { name: name, parents: ['appDataFolder'] };
+      const boundary = 'ewid_'+Date.now();
+      const multipart =
+        '--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+
+        JSON.stringify(meta)+'\r\n'+
+        '--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+
+        bodyStr+'\r\n'+
+        '--'+boundary+'--';
+      res = await gdriveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'multipart/related; boundary='+boundary },
+        body: multipart
+      });
+      if(res.ok){
+        const j = await res.json();
+        fileId = j.id;
+        _gdriveFileIds[pid] = fileId;
+      }
+    }
+    if(!res.ok){
+      const tx = await res.text();
+      throw new Error(res.status+' '+tx.slice(0,120));
+    }
+    if(fileId) _gdriveFileIds[pid] = fileId;
+    state.settings.gdriveClientId = gdriveGetClientId();
+    saveState();
+    setSyncStatus('Zapisano na Dysku Google ✓', true);
+    if(!silent) alert('Zapisano na Dysku Google.');
+  }catch(e){
+    const msg = 'Drive: '+(e.message||e);
+    setSyncStatus(msg, false);
+    if(!silent) alert(msg);
+  }
+}
+
+async function gdrivePull(silent){
+  try{
+    if(!_gdriveToken){
+      const msg = 'Najpierw: Zaloguj przez Google';
+      setSyncStatus(msg, false);
+      if(!silent) alert(msg);
+      return;
+    }
+    if(!silent) setSyncStatus('Wczytywanie z Dysku Google…');
+    const pid = (profilesDB && profilesDB.activeId) ? String(profilesDB.activeId) : 'default';
+    const name = 'ewidencja-'+pid+'.json';
+    let fileId = _gdriveFileIds[pid] || await gdriveFindFile(name);
+    if(!fileId){
+      setSyncStatus('Brak pliku na Dysku dla tego profilu – najpierw Zapisz na Dysku', false);
+      if(!silent) alert('Brak zapisu na Dysku dla tego profilu. Najpierw „Zapisz na Dysku Google”.');
+      return;
+    }
+    _gdriveFileIds[pid] = fileId;
+    const res = await gdriveFetch('https://www.googleapis.com/drive/v3/files/'+fileId+'?alt=media');
+    if(!res.ok) throw new Error('Odczyt '+res.status);
+    const payload = await res.json();
+    applyPack(payload);
+    setSyncStatus('Wczytano z Dysku Google ✓', true);
+    if(!silent) alert('Wczytano z Dysku Google.');
+  }catch(e){
+    const msg = 'Drive: '+(e.message||e);
+    setSyncStatus(msg, false);
+    if(!silent) alert(msg);
+  }
+}
+
+
+function syncCfg(){
+  const s = state.settings || {};
+  // Token: tylko ASCII – usuń spacje, enter, niewidoczne znaki (błąd ISO-8859-1)
+  let token = (document.getElementById('syncToken')?.value || s.syncToken || '');
+  token = String(token).replace(/[\s\u200B-\u200D\uFEFF\u00A0]/g,'').replace(/[^\x20-\x7E]/g,'');
+  let owner = (document.getElementById('syncOwner')?.value || s.syncOwner || 'cichy78');
+  owner = String(owner).trim().replace(/[^a-zA-Z0-9-]/g,'');
+  let repo = (document.getElementById('syncRepo')?.value || s.syncRepo || 'czas-pracy');
+  repo = String(repo).trim().replace(/[^a-zA-Z0-9._-]/g,'');
+  const pid = (typeof profilesDB!=='undefined' && profilesDB && profilesDB.activeId) ? String(profilesDB.activeId).replace(/[^a-zA-Z0-9_-]/g,'') : 'default';
+  return {
+    owner: owner || 'cichy78',
+    repo: repo || 'czas-pracy',
+    token: token,
+    path: 'sync-' + pid + '.json'
+  };
+}
+function buildPack(){
+  return {
+    v: 2,
+    profileName: (typeof profilesDB!=='undefined' && profilesDB && profilesDB.profiles && profilesDB.profiles[profilesDB.activeId]?.name) || 'Profil',
+    updatedAt: Date.now(),
+    data: {
+      settings: { ...state.settings, syncToken: undefined },
+      days: state.days,
+      events: state.events,
+      updatedAt: state.updatedAt,
+      year: state.year,
+      month: state.month
+    }
+  };
+}
+function applyPack(payload){
+  const data = payload.data || payload.state || payload;
+  if(!data || typeof data !== 'object') throw new Error('Zły format');
+  state.settings = { ...(state.settings||{}), ...(data.settings||{}) };
+  // never import foreign tokens blindly over empty – keep local token if pack has none
+  state.days = data.days || {};
+  state.events = data.events || {};
+  state.updatedAt = data.updatedAt || Date.now();
+  if(typeof data.year === 'number') state.year = data.year;
+  if(typeof data.month === 'number') state.month = data.month;
+  if(payload.profileName && profilesDB.profiles[profilesDB.activeId]){
+    profilesDB.profiles[profilesDB.activeId].name = payload.profileName;
+  }
+  saveState();
+  try{ renderProfileSelect(); }catch(e){}
+  try{ renderAll(); }catch(e){}
+}
+async function syncCopyPack(){
+  try{
+    const pack = buildPack();
+    const text = 'EWIDENCJA:' + btoa(unescape(encodeURIComponent(JSON.stringify(pack))));
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      setSyncStatus('Kod danych skopiowany – wklej drugiej osobie / na drugim urządzeniu', true);
+    } else {
+      prompt('Skopiuj ten kod (Ctrl+C):', text);
+      setSyncStatus('Skopiuj kod z okna', true);
+    }
+  }catch(e){
+    setSyncStatus('Błąd kopiowania: '+(e.message||e), false);
+  }
+}
+async function syncPastePack(){
+  try{
+    let text = '';
+    if(navigator.clipboard && navigator.clipboard.readText){
+      try{ text = await navigator.clipboard.readText(); }catch(e){}
+    }
+    if(!text || text.indexOf('EWIDENCJA:') !== 0){
+      text = prompt('Wklej kod danych (zaczyna się od EWIDENCJA:)', text || '');
+    }
+    if(!text){ setSyncStatus('Anulowano', false); return; }
+    text = text.trim();
+    if(text.indexOf('EWIDENCJA:') === 0) text = text.slice(10);
+    const json = decodeURIComponent(escape(atob(text)));
+    const payload = JSON.parse(json);
+    applyPack(payload);
+    setSyncStatus('Wczytano dane z kodu ✓', true);
+  }catch(e){
+    setSyncStatus('Nie udało się wkleić: '+(e.message||e), false);
+  }
+}
+
+function utf8ToB64(str){
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64ToUtf8(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+async function cloudPush(silent){
+  try{
+    const cfg = syncCfg();
+    if(!cfg.token){
+      const msg = 'Brak tokenu GitHub albo token zawierał niedozwolone znaki. Wklej ponownie sam token (ghp_...), bez spacji.';
+      setSyncStatus(msg, false);
+      if(!silent) alert(msg);
+      return;
+    }
+    if(!cfg.owner || !cfg.repo){
+      const msg = 'Uzupełnij właściciela (cichy78) i nazwę repo (czas-pracy).';
+      setSyncStatus(msg, false);
+      if(!silent) alert(msg);
+      return;
+    }
+    if(!silent) setSyncStatus('Wysyłanie na GitHub…');
+    const api = 'https://api.github.com/repos/'+encodeURIComponent(cfg.owner)+'/'+encodeURIComponent(cfg.repo)+'/contents/'+encodeURIComponent(cfg.path);
+    const headers = {
+      'Authorization': 'Bearer '+cfg.token,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    };
+
+    async function getSha(){
+      const head = await fetch(api+'?ref=main', { headers, cache:'no-store' });
+      if(head.status===404) return null;
+      if(head.status===401 || head.status===403){
+        const msg = 'Token odrzucony ('+head.status+'). Sprawdź token i uprawnienie repo.';
+        setSyncStatus(msg, false);
+        if(!silent) alert(msg);
+        throw new Error('auth');
+      }
+      if(!head.ok){
+        // spróbuj bez ref
+        const head2 = await fetch(api, { headers, cache:'no-store' });
+        if(head2.status===404) return null;
+        if(!head2.ok) return null;
+        const j2 = await head2.json();
+        return j2.sha || null;
+      }
+      const j = await head.json();
+      return j.sha || null;
+    }
+
+    const pack = buildPack();
+    const content = utf8ToB64(JSON.stringify(pack));
+    const message = 'Sync '+(pack.profileName||'')+' '+new Date().toISOString();
+
+    async function putWithSha(sha){
+      const body = { message, content, branch: 'main' };
+      if(sha) body.sha = sha;
+      const ctrl = new AbortController();
+      const t = setTimeout(()=>ctrl.abort(), 25000);
+      const res = await fetch(api, {
+        method:'PUT',
+        headers: { ...headers, 'Content-Type':'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal
+      });
+      clearTimeout(t);
+      return res;
+    }
+
+    let res = null;
+    let lastText = '';
+    // Do 5 prób przy 409 (konflikt sha) lub 422
+    for(let attempt=0; attempt<5; attempt++){
+      const sha = await getSha();
+      res = await putWithSha(sha);
+      if(res.ok) break;
+      lastText = await res.text();
+      if(res.status===409 || res.status===422){
+        // krótka przerwa i świeże sha
+        await new Promise(r=>setTimeout(r, 300+attempt*200));
+        continue;
+      }
+      break;
+    }
+
+    if(!res || !res.ok){
+      const msg = 'Błąd GitHub '+(res?res.status:'?')+': '+(lastText||'').slice(0,180);
+      setSyncStatus(msg, false);
+      if(!silent) alert(msg);
+      return;
+    }
+    state.settings.syncToken = cfg.token;
+    state.settings.syncOwner = cfg.owner;
+    state.settings.syncRepo = cfg.repo;
+    saveState();
+    setSyncStatus('Wysłano na GitHub ✓', true);
+    if(!silent) alert('Wysłano na GitHub.');
+  }catch(e){
+    if(e && e.message==='auth') return;
+    const msg = 'Błąd wysyłania: '+(e.name==='AbortError'?'timeout / brak sieci':(e.message||e));
+    setSyncStatus(msg, false);
+    if(!silent) alert(msg);
+  }
+}
+
+async function cloudPull(silent){
+  const cfg = syncCfg();
+  if(!cfg.token){ if(!silent) setSyncStatus('Brak tokenu GitHub', false); return; }
+  if(!silent) setSyncStatus('Pobieranie z GitHub…');
+  const api = `https://api.github.com/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.path}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(()=>ctrl.abort(), 20000);
+  let res;
+  try{
+    res = await fetch(api, {
+      headers:{ 'Authorization':'Bearer '+cfg.token, 'Accept':'application/vnd.github+json' },
+      cache:'no-store', signal: ctrl.signal
+    });
+  }catch(e){
+    clearTimeout(t);
+    setSyncStatus('Sieć / timeout', false);
+    throw e;
+  }
+  clearTimeout(t);
+  if(res.status===404){ setSyncStatus('Brak pliku w chmurze – najpierw Wyślij', false); return; }
+  if(!res.ok){ setSyncStatus('Błąd '+res.status, false); throw new Error('pull'); }
+  const j = await res.json();
+  const text = b64ToUtf8((j.content||'').replace(/\n/g,''));
+  const payload = JSON.parse(text);
+  applyPack(payload);
+  setSyncStatus('Pobrano z GitHub ✓', true);
+}
+// kompatybilność starych przycisków
+async function cloudCreate(){ return syncCopyPack(); }
+
+
+function uid(){ return 'p_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+
+function defaultProfileData(name){
+  return {
+    settings: {
+      appName:'Ewidencja czasu', firstName: name||'', lastName:'', workplace:'', rate:15,
+      autoPause:true, lang:'pl', theme:'aero', syncCode:'', syncEnabled:false, syncToken:'', syncOwner:'cichy78', syncRepo:'czas-pracy',
+      cols:{ start:true, end:true, pause:true, hours:true, ot:true, dieta:true }
+    },
+    days: {}, events: {}, updatedAt: 0
+  };
+}
+
+function packActiveToDB(){
+  if(!profilesDB || !profilesDB.activeId || !profilesDB.profiles[profilesDB.activeId]) return;
+  profilesDB.profiles[profilesDB.activeId].data = {
+    settings: state.settings,
+    days: state.days,
+    events: state.events,
+    updatedAt: state.updatedAt || Date.now(),
+    year: state.year,
+    month: state.month
+  };
+  const n = [state.settings.firstName, state.settings.lastName].filter(Boolean).join(' ').trim();
+  if(n) profilesDB.profiles[profilesDB.activeId].name = n;
+}
+
+function unpackActiveFromDB(){
+  if(!profilesDB || !profilesDB.activeId) return;
+  const p = profilesDB.profiles[profilesDB.activeId];
+  if(!p) return;
+  const d = p.data || defaultProfileData(p.name);
+  state.settings = d.settings || defaultProfileData(p.name).settings;
+  state.days = d.days || {};
+  state.events = d.events || {};
+  state.updatedAt = d.updatedAt || 0;
+  if(typeof d.year === 'number') state.year = d.year;
+  if(typeof d.month === 'number') state.month = d.month;
+  if(!state.settings.cols) state.settings.cols={start:true,end:true,pause:true,hours:true,ot:true,dieta:true};
+}
+
+function persistProfilesDB(){
+  packActiveToDB();
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 5, profilesDB, state }));
+}
+
+function renderProfileSelect(){
+  const sel = document.getElementById('profileSelect');
+  if(!sel || !profilesDB) return;
+  const ids = Object.keys(profilesDB.profiles || {});
+  sel.innerHTML = ids.map(id=>{
+    const p = profilesDB.profiles[id];
+    const selAttr = id === profilesDB.activeId ? ' selected' : '';
+    return '<option value="'+id+'"'+selAttr+'>'+((p.name||'Profil').replace(/</g,''))+'</option>';
+  }).join('');
+}
+
+function switchProfile(newId){
+  if(!newId || !profilesDB || newId === profilesDB.activeId) return;
+  if(!profilesDB.profiles[newId]) return;
+  packActiveToDB();
+  profilesDB.activeId = newId;
+  unpackActiveFromDB();
+  persistProfilesDB();
+  try{ applyTheme(); }catch(e){}
+  try{ renderAll(); }catch(e){}
+  try{ renderProfileSelect(); }catch(e){}
+  try{
+    const s=state.settings||{};
+    const st=document.getElementById('syncToken'); if(st && s.syncToken) st.value=s.syncToken;
+    const se=document.getElementById('syncEnabled'); if(se) se.checked=!!s.syncEnabled;
+    const so=document.getElementById('syncOwner'); if(so) so.value=s.syncOwner||'cichy78';
+    const sr=document.getElementById('syncRepo'); if(sr) sr.value=s.syncRepo||'czas-pracy';
+    const th=document.getElementById('setTheme'); if(th) th.value=s.theme||'aero';
+  }catch(e){}
+}
+
+function addProfile(){
+  const name = prompt('Nazwa nowego profilu:', 'Profil '+(Object.keys(profilesDB.profiles||{}).length+1));
+  if(name===null) return;
+  const id = uid();
+  packActiveToDB();
+  profilesDB.profiles[id] = { id, name: (name||'Profil').trim() || 'Profil', data: defaultProfileData(name) };
+  profilesDB.activeId = id;
+  unpackActiveFromDB();
+  state.settings.firstName = (name||'').trim();
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+function renameProfile(){
+  const p = profilesDB.profiles[profilesDB.activeId];
+  if(!p) return;
+  const name = prompt('Nowa nazwa profilu:', p.name||'');
+  if(name===null || !name.trim()) return;
+  p.name = name.trim();
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+function deleteProfile(){
+  const ids = Object.keys(profilesDB.profiles||{});
+  if(ids.length <= 1){ alert('Musi zostać co najmniej jeden profil.'); return; }
+  const p = profilesDB.profiles[profilesDB.activeId];
+  if(!confirm('Usunąć profil „'+(p?.name||'')+'” wraz z wpisami?')) return;
+  delete profilesDB.profiles[profilesDB.activeId];
+  profilesDB.activeId = Object.keys(profilesDB.profiles)[0];
+  unpackActiveFromDB();
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw){
+      // first run – 2 profiles
+      const id1 = uid(), id2 = uid();
+      profilesDB = {
+        activeId: id1,
+        profiles: {
+          [id1]: { id:id1, name:'Profil 1', data: defaultProfileData('Profil 1') },
+          [id2]: { id:id2, name:'Profil 2', data: defaultProfileData('Profil 2') }
+        }
+      };
+      unpackActiveFromDB();
+      persistProfilesDB();
+      return;
+    }
+    const p = JSON.parse(raw);
+    if(p.v >= 5 && p.profilesDB && p.profilesDB.profiles){
+      profilesDB = p.profilesDB;
+      if(!profilesDB.activeId || !profilesDB.profiles[profilesDB.activeId]){
+        profilesDB.activeId = Object.keys(profilesDB.profiles)[0];
+      }
+      unpackActiveFromDB();
+      return;
+    }
+    // migrate old single-user state
+    const oldState = p.state || p;
+    const id1 = uid(), id2 = uid();
+    const data1 = {
+      settings: oldState.settings || defaultProfileData('Profil 1').settings,
+      days: oldState.days || {},
+      events: oldState.events || {},
+      updatedAt: oldState.updatedAt || Date.now(),
+      year: oldState.year,
+      month: oldState.month
+    };
+    const name1 = [data1.settings.firstName, data1.settings.lastName].filter(Boolean).join(' ').trim() || 'Profil 1';
+    profilesDB = {
+      activeId: id1,
+      profiles: {
+        [id1]: { id:id1, name: name1, data: data1 },
+        [id2]: { id:id2, name:'Profil 2', data: defaultProfileData('Profil 2') }
+      }
+    };
+    unpackActiveFromDB();
+    persistProfilesDB();
+  }catch(e){
+    console.log('loadState', e);
+    const id1 = uid();
+    profilesDB = { activeId:id1, profiles:{ [id1]:{ id:id1, name:'Profil 1', data:defaultProfileData('Profil 1') } } };
+    unpackActiveFromDB();
+  }
+}
+
+function saveState(){
+  state.updatedAt = Date.now();
+  persistProfilesDB();
+  if(state.settings && state.settings.syncEnabled && _gdriveToken){
+    clearTimeout(window._syncTimer);
+    window._syncTimer = setTimeout(()=>{ gdrivePush(true).catch(()=>{}); }, 1500);
+  }
+}
+
+function renderProfileSelect(){
+  const sel = document.getElementById('profileSelect');
+  if(!sel) return;
+  const ids = Object.keys(profilesDB.profiles || {});
+  sel.innerHTML = ids.map(id=>{
+    const p = profilesDB.profiles[id];
+    const selAttr = id === profilesDB.activeId ? ' selected' : '';
+    return `<option value="${id}"${selAttr}>${(p.name||'Profil').replace(/</g,'')}</option>`;
+  }).join('');
+}
+
+function switchProfile(newId){
+  if(!newId || newId === profilesDB.activeId) return;
+  if(!profilesDB.profiles[newId]) return;
+  packActiveToDB();
+  profilesDB.activeId = newId;
+  unpackActiveFromDB();
+  persistProfilesDB();
+  try{ applyTheme(); }catch(e){}
+  try{ renderAll(); }catch(e){}
+  try{ renderProfileSelect(); }catch(e){}
+  // fill settings fields if visible
+  try{
+    const s=state.settings||{};
+    const sc=document.getElementById('syncCode'); if(sc) sc.value=s.syncCode||'';
+    const se=document.getElementById('syncEnabled'); if(se) se.checked=!!s.syncEnabled;
+    const st=document.getElementById('setTheme'); if(st) st.value=s.theme||'aero';
+  }catch(e){}
+  setSyncStatus('Profil: '+(profilesDB.profiles[newId].name||''), true);
+}
+
+function addProfile(){
+  const name = prompt('Nazwa nowego profilu:', 'Profil '+(Object.keys(profilesDB.profiles).length+1));
+  if(name===null) return;
+  const id = uid();
+  packActiveToDB();
+  profilesDB.profiles[id] = { id, name: (name||'Profil').trim() || 'Profil', data: defaultProfileData(name) };
+  profilesDB.activeId = id;
+  unpackActiveFromDB();
+  // set firstName from profile name
+  state.settings.firstName = (name||'').trim();
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+function renameProfile(){
+  const p = profilesDB.profiles[profilesDB.activeId];
+  if(!p) return;
+  const name = prompt('Nowa nazwa profilu:', p.name||'');
+  if(name===null || !name.trim()) return;
+  p.name = name.trim();
+  if(!state.settings.firstName) state.settings.firstName = p.name;
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+function deleteProfile(){
+  const ids = Object.keys(profilesDB.profiles);
+  if(ids.length <= 1){ alert('Musi zostać co najmniej jeden profil.'); return; }
+  const p = profilesDB.profiles[profilesDB.activeId];
+  if(!confirm('Usunąć profil „'+(p?.name||'')+'” wraz z wpisami?')) return;
+  delete profilesDB.profiles[profilesDB.activeId];
+  profilesDB.activeId = Object.keys(profilesDB.profiles)[0];
+  unpackActiveFromDB();
+  persistProfilesDB();
+  renderProfileSelect();
+  try{ renderAll(); }catch(e){}
+}
+
+
+function timeToMin(t){ if(!t)return 0; const[h,m]=t.split(':').map(Number); return h*60+m; }
+function calcDay(day){
+  if(!day) return {hours:0,ot:0,dieta:0};
+  if(day.status==='urlaub'||day.status==='krank'||day.status==='fza') return {hours:8,ot:0,dieta:day.dieta||0};
+  if(day.status==='wolny') return {hours:0,ot:0,dieta:0};
+  let start=timeToMin(day.start||'00:00'), end=timeToMin(day.end||'00:00');
+  if(end<start) end+=24*60;
+  let gross=end-start, pause=day.pause||0;
+  if(day.autoPause!==false && state.settings.autoPause){
+    if(gross>9*60) pause=Math.max(pause,45);
+    else if(gross>6*60) pause=Math.max(pause,30);
+  }
+  const net=Math.max(0,gross-pause)/60;
+  const ot=net-8; // can be negative
+  return {hours:net, ot, dieta:day.dieta||0, pauseUsed:pause};
+}
+
+function getMonthDays(y,m){
+  const days=[], last=new Date(y,m+1,0).getDate();
+  for(let d=1;d<=last;d++) days.push(toLocalDateStr(y,m,d));
+  return days;
+}
+function countWorkdays(y,m){
+  let c=0;
+  for(const ds of getMonthDays(y,m)){
+    const wd=new Date(ds+'T12:00:00').getDay();
+    if(wd===0||wd===6) continue;
+    if(isHoliday(ds)) continue;
+    c++;
+  }
+  return c;
+}
+
+function applyLang(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    // Nie nadpisuj elementów, które mają dzieci-elementy (np. span z id)
+    if(el.children.length > 0) return;
+    const k=el.getAttribute('data-i18n');
+    if(t(k)) el.textContent=t(k);
+  });
+}
+function applyTheme(){
+  const t = state.settings.theme || 'aero';
+  document.body.className = document.body.className
+    .split(/\s+/)
+    .filter(c => !c.startsWith('theme-'))
+    .join(' ');
+  if(t && t !== 'aero') document.body.classList.add('theme-' + t);
+}
+function applyCols(){
+  const c=state.settings.cols;
+  document.querySelectorAll('[data-col]').forEach(th=>{
+    const col=th.getAttribute('data-col');
+    if(col==='date') return;
+    th.classList.toggle('hide-col', !c[col]);
+  });
+}
+
+function renderAll(){
+  try {
+    const set = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+    set('appTitle', state.settings.appName || 'Ewidencja czasu');
+    set('currentYear', state.year);
+    set('summaryYear', state.year);
+    try { applyLang(); } catch(e){}
+    try { applyTheme(); } catch(e){}
+    try { applyCols(); } catch(e){}
+    try { renderHome(); } catch(e){}
+    try { renderDays(); } catch(e){ console.error('renderDays', e); }
+    try { renderSummary(); } catch(e){}
+    try { renderBottom(); } catch(e){}
+    try { renderCalendar(); } catch(e){ console.error('renderCalendar', e); }
+    try { applySettingsForm(); } catch(e){}
+    try { if(typeof bindAllEvents === 'function') bindAllEvents(); } catch(e){}
+  } catch(e) {
+    console.error('renderAll error', e);
+  }
+}
+
+function renderHome(){
+  const name=[state.settings.firstName,state.settings.lastName].filter(Boolean).join(' ')||'Witaj';
+  document.getElementById('welcomeName').textContent=name;
+  document.getElementById('workplaceLabel').textContent=state.settings.workplace||'';
+
+  const now = new Date();
+  const lang = state.settings.lang || 'pl';
+  const dayName = (DAY_FULL[lang]||DAY_FULL.pl)[now.getDay()];
+  const dateStr = pad(now.getDate())+'.'+pad(now.getMonth()+1)+'.'+now.getFullYear();
+  const elDate = document.getElementById('homeTodayDate');
+  if(elDate) elDate.textContent = dayName + ', ' + dateStr;
+
+  // Wschód / zachód (wybrane miasto Saksonii)
+  try{
+    const city = getSunCoords();
+    const sun = calcSunTimes(now, city.lat, city.lon);
+    const elR = document.getElementById('homeSunrise');
+    const elS = document.getElementById('homeSunset');
+    if(elR) elR.textContent = sun.rise;
+    if(elS) elS.textContent = sun.set;
+  }catch(e){}
+
+  // Imieniny
+  const elIm = document.getElementById('homeImieniny');
+  if(elIm) elIm.textContent = getImieniny(now);
+
+  // Zestawienie BIEŻĄCEGO miesiąca (nie całego roku)
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const pref = y + '-' + pad(m+1);
+  const mt = document.getElementById('homeMonthTitle');
+  if(mt) mt.textContent = 'Bieżący miesiąc: ' + ((MONTHS[lang]||MONTHS.pl)[m]) + ' ' + y;
+
+  let th=0, tot=0, td=0;
+  for(const[ds,day] of Object.entries(state.days||{})){
+    if(!ds.startsWith(pref)) continue;
+    const c=calcDay(day); th+=c.hours; tot+=Math.max(0,c.ot); td+=c.dieta;
+  }
+  const money=th*(state.settings.rate||0);
+  document.getElementById('homeHours').textContent=formatHours(th);
+  document.getElementById('homeOT').textContent=formatHours(tot);
+  document.getElementById('homeMoney').textContent=formatMoney(money);
+  document.getElementById('homeDieta').textContent=formatMoney(td);
+  document.getElementById('homeTotal').textContent=formatMoney(money+td);
+
+  // Do normy miesiąca (8h × dni robocze)
+  try{
+    const neededDays = countWorkdays(y, m);
+    const normH = neededDays * 8;
+    const diff = th - normH;
+    const elN = document.getElementById('homeNorm');
+    const box = document.getElementById('homeNormBox');
+    if(elN){
+      if(diff >= 0){
+        elN.textContent = '✓ Norma +' + formatHours(diff);
+        elN.style.color = 'var(--success)';
+      } else {
+        elN.textContent = formatHours(diff) + ' (brakuje ' + formatHours(-diff) + ')';
+        elN.style.color = 'var(--warning)';
+      }
+    }
+    if(box){
+      const lab = box.querySelector('.label');
+      if(lab) lab.textContent = 'Norma: '+formatHours(normH)+' ('+neededDays+' dni × 8 h) · przepracowano '+formatHours(th);
+    }
+  }catch(e){}
+}
+
+function renderDays(){
+  const lang=state.settings.lang || 'pl';
+  const ml = document.getElementById('monthLabel');
+  if(ml) ml.textContent = (MONTHS[lang] || MONTHS.pl)[state.month] + ' ' + state.year;
+  const needed=countWorkdays(state.year,state.month);
+  let capt=0;
+  const pref=`${state.year}-${pad(state.month+1)}`;
+  for(const ds of Object.keys(state.days)) if(ds.startsWith(pref)) capt++;
+  document.getElementById('workdaysInfo').textContent=`Dni robocze: ${needed} | Zarejestrowane: ${capt}`;
+  try{ renderWeekBar(); }catch(e){}
+
+  const tbody=document.getElementById('daysBody');
+  tbody.innerHTML='';
+  const cols=state.settings.cols;
+  for(const ds of getMonthDays(state.year,state.month)){
+    const day=state.days[ds];
+    const hol=isHoliday(ds);
+    const d=new Date(ds+'T12:00:00');
+    const wd=d.getDay();
+    const tr=document.createElement('tr');
+    if(day){
+      if(day.status==='urlaub') tr.classList.add('status-urlaub');
+      else if(day.status==='krank') tr.classList.add('status-krank');
+      else if(day.status==='fza') tr.classList.add('status-fza');
+      else if(day.status==='wolny') tr.classList.add('status-wolny');
+    }
+    if(hol) tr.classList.add('status-feiertag');
+    else if(wd===6) tr.classList.add('day-saturday');
+    else if(wd===0) tr.classList.add('day-sunday');
+
+    const c=calcDay(day);
+    const icon=day? (STATUS_ICON[day.status]||'') : '';
+    const holName=hol? hol[lang]||hol.pl : '';
+    let start=day?.start||'–', end=day?.end||'–', pause=day?(c.pauseUsed??day.pause??'–'):'–';
+    if(day&&['urlaub','krank','fza','wolny'].includes(day.status)){ start=end=pause='–'; }
+
+    const otClass = c.ot<0 ? 'ot-neg' : 'ot';
+    const otDisp = (c.hours||c.ot) ? formatHours(c.ot) : '–';
+
+    tr.innerHTML=`
+      <td data-col="date"><span class="icon-status">${icon}</span><strong>${ds.slice(8)}.${ds.slice(5,7)}</strong>
+        <span class="day-name">${DAY_NAMES[lang][wd]}</span>
+        ${holName?`<span class="holiday-note">${holName}</span>`:''}</td>
+      <td data-col="start" class="${cols.start?'':'hide-col'}">${start}</td>
+      <td data-col="end" class="${cols.end?'':'hide-col'}">${end}</td>
+      <td data-col="pause" class="${cols.pause?'':'hide-col'}">${pause==='–'?'–':formatPause(pause)}</td>
+      <td data-col="hours" class="hours ${cols.hours?'':'hide-col'}">${c.hours?formatHours(c.hours):'–'}</td>
+      <td data-col="ot" class="${otClass} ${cols.ot?'':'hide-col'}">${otDisp}</td>
+      <td data-col="dieta" class="${cols.dieta?'':'hide-col'}">${c.dieta?c.dieta+' €':'–'}</td>`;
+    tr.onclick=()=>openDayModal(ds);
+    tbody.appendChild(tr);
+  }
+}
+
+function renderBottom(){
+  let h=0,ot=0,d=0;
+  const pref=`${state.year}-${pad(state.month+1)}`;
+  for(const[ds,day] of Object.entries(state.days)){
+    if(!ds.startsWith(pref)) continue;
+    const c=calcDay(day); h+=c.hours; ot+=Math.max(0,c.ot); d+=c.dieta;
+  }
+  const money=h*(state.settings.rate||0);
+  document.getElementById('barHours').textContent=formatHours(h)+' h';
+  document.getElementById('barOT').textContent=formatHours(ot)+' h';
+  document.getElementById('barDieta').textContent=formatMoney(d);
+  document.getElementById('barTotal').textContent=formatMoney(money+d);
+}
+
+function renderSummary(){
+  const tbody=document.getElementById('summaryBody');
+  tbody.innerHTML='';
+  const mShort=state.settings.lang==='de'?['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']:['Sty','Lut','Mar','Kwi','Maj','Cze','Lip','Sie','Wrz','Paź','Lis','Gru'];
+  let sh=0,so=0,sd=0,sm=0;
+  for(let m=0;m<12;m++){
+    let h=0,ot=0,d=0;
+    const pref=`${state.year}-${pad(m+1)}`;
+    for(const[ds,day] of Object.entries(state.days)){
+      if(!ds.startsWith(pref)) continue;
+      const c=calcDay(day); h+=c.hours; ot+=Math.max(0,c.ot); d+=c.dieta;
+    }
+    const money=h*(state.settings.rate||0);
+    sh+=h; so+=ot; sd+=d; sm+=money;
+    tbody.innerHTML+=`<tr><td>${mShort[m]}</td><td>${formatHours(h)}</td><td>${formatHours(ot)}</td><td>${d.toFixed(0)} €</td><td>${formatMoney(money+d)}</td></tr>`;
+  }
+  tbody.innerHTML+=`<tr style="font-weight:700;background:rgba(74,163,224,0.15)"><td>Σ</td><td>${formatHours(sh)}</td><td>${formatHours(so)}</td><td>${sd.toFixed(0)} €</td><td>${formatMoney(sm+sd)}</td></tr>`;
+}
+
+// Widok kalendarza: 'month' | 'week'
+if(typeof state.calView === 'undefined') state.calView = 'month';
+if(typeof state.weekOffset === 'undefined') state.weekOffset = 0;
+
+function setCalView(v){
+  state.calView = v;
+  state.weekOffset = 0;
+  // Podświetl aktywny przycisk
+  const bm = document.getElementById('calViewMonth');
+  const bw = document.getElementById('calViewWeek');
+  if(bm){ bm.classList.toggle('btn-secondary', v !== 'month'); if(v==='month') bm.classList.remove('btn-secondary'); }
+  if(bw){ bw.classList.toggle('btn-secondary', v !== 'week'); if(v==='week') bw.classList.remove('btn-secondary'); }
+  renderCalendar();
+}
+window.setCalView = setCalView;
+
+function renderCalendar(){
+  const lang = state.settings.lang || 'pl';
+  const view = state.calView || 'month';
+  const head = document.getElementById('calHead');
+  const body = document.getElementById('calBody');
+  const cl = document.getElementById('calLabel');
+  if(!head || !body) return;
+
+  // Przyciski widoku
+  const bm = document.getElementById('calViewMonth');
+  const bw = document.getElementById('calViewWeek');
+  if(bm) bm.classList.toggle('btn-secondary', view !== 'month');
+  if(bw) bw.classList.toggle('btn-secondary', view !== 'week');
+
+  if(view === 'week'){
+    renderWeekView(lang, head, body, cl);
+  } else {
+    renderMonthView(lang, head, body, cl);
+  }
+}
+
+function renderMonthView(lang, head, body, cl){
+  if(cl) cl.textContent = (MONTHS[lang] || MONTHS.pl)[state.month] + ' ' + state.year;
+  head.innerHTML = DAY_NAMES[lang].map(n => `<div class="cal-head">${n}</div>`).join('');
+  head.style.display = '';
+  body.className = 'cal-grid';
+  body.style.display = '';
+  body.style.flexDirection = '';
+  body.style.gap = '';
+  body.innerHTML = '';
+  const first = new Date(state.year, state.month, 1);
+  const startWd = first.getDay();
+  const last = new Date(state.year, state.month+1, 0).getDate();
+  for(let i=0; i<startWd; i++) body.innerHTML += `<div class="cal-day" style="opacity:0.25"></div>`;
+  const today = toLocalDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  for(let d=1; d<=last; d++){
+    const ds = toLocalDateStr(state.year, state.month, d);
+    appendCalDay(body, ds, d, today);
+  }
+}
+
+function renderWeekView(lang, head, body, cl){
+  // Poniedziałek tygodnia zawierającego 1. dzień miesiąca + weekOffset
+  const base = new Date(state.year, state.month, 1);
+  // Znajdź poniedziałek tego tygodnia
+  const day = base.getDay(); // 0=Nd
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + mondayOffset + (state.weekOffset || 0) * 7);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const fmt = (d) => pad(d.getDate()) + '.' + pad(d.getMonth()+1);
+  if(cl) cl.textContent = fmt(monday) + ' – ' + fmt(sunday) + ' ' + monday.getFullYear();
+
+  head.innerHTML = '';
+  head.style.display = 'none';
+  body.className = '';
+  body.innerHTML = '';
+  body.style.display = 'flex';
+  body.style.flexDirection = 'column';
+  body.style.gap = '6px';
+
+  const today = toLocalDateStr(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const names = DAY_NAMES[lang] || DAY_NAMES.pl;
+
+  for(let i=0; i<7; i++){
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const ds = toLocalDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+    const wd = d.getDay(); // 0=Nd
+    const nameIdx = wd; // DAY_NAMES starts with Nd
+    const hol = isHoliday(ds);
+    const fer = isFerien(ds);
+    const ev = state.events[ds];
+    const work = state.days[ds];
+
+    let bg = 'rgba(255,255,255,0.06)';
+    if(hol) bg = 'var(--feiertag)';
+    else if(fer) bg = 'rgba(100,200,150,0.25)';
+    else if(wd === 0 || wd === 6) bg = 'rgba(100,80,160,0.25)';
+    if(ds === today) bg = 'rgba(0,120,215,0.35)';
+
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:${bg};cursor:pointer;border:1px solid var(--border)`;
+    row.onclick = () => showCalDay(ds);
+
+    let info = '';
+    if(hol) info += '🎉 ' + (hol[lang]||hol.pl) + ' ';
+    if(fer) info += '🎒 ';
+    if(ev) info += '📌 ' + ev.title;
+    if(work){
+      const c = calcDay(work);
+      if(work.status === 'work') info += (info?' · ':'') + '🔨 ' + formatHours(c.hours);
+      else if(work.status === 'urlaub') info += (info?' · ':'') + '🌴 Urlop';
+      else if(work.status === 'krank') info += (info?' · ':'') + '🌡️ Chorobowe';
+      else if(work.status === 'fza') info += (info?' · ':'') + '⏰ FZA';
+      else if(work.status === 'free') info += (info?' · ':'') + '🆓 Wolne';
+    }
+    if(!info) info = '<span style="color:var(--muted)">—</span>';
+
+    row.innerHTML = `
+      <div style="min-width:42px;font-weight:700;font-size:1.1rem">${pad(d.getDate())}</div>
+      <div style="min-width:36px;color:var(--muted);font-size:0.85rem">${names[nameIdx]}</div>
+      <div style="flex:1;font-size:0.9rem">${info}</div>
+    `;
+    body.appendChild(row);
+  }
+}
+
+function appendCalDay(body, ds, d, today){
+  const hol = isHoliday(ds);
+  const fer = isFerien(ds);
+  let cls = 'cal-day';
+  if(hol) cls += ' holiday';
+  if(fer) cls += ' ferien';
+  if(ds === today) cls += ' today';
+  if(state.events[ds]) cls += ' has-event';
+  const div = document.createElement('div');
+  div.className = cls;
+  div.innerHTML = `<span class="num">${d}</span>`;
+  div.onclick = () => showCalDay(ds);
+  body.appendChild(div);
+}
+
+// Nawigacja w widoku tygodnia – strzałki zmieniają tydzień
+const _origGoPrev = typeof goPrevMonth === 'function' ? goPrevMonth : null;
+const _origGoNext = typeof goNextMonth === 'function' ? goNextMonth : null;
+
+function goPrevMonth(){
+  if((state.calView||'month') === 'week'){
+    state.weekOffset = (state.weekOffset||0) - 1;
+    renderCalendar();
+    return;
+  }
+  state.month--;
+  if(state.month < 0){ state.month = 11; state.year--; }
+  renderAll();
+}
+function goNextMonth(){
+  if((state.calView||'month') === 'week'){
+    state.weekOffset = (state.weekOffset||0) + 1;
+    renderCalendar();
+    return;
+  }
+  state.month++;
+  if(state.month > 11){ state.month = 0; state.year++; }
+  renderAll();
+}
+window.goPrevMonth = goPrevMonth;
+window.goNextMonth = goNextMonth;
+
+function showCalDay(ds){
+  // Pokaż info o dniu + otwórz modal wydarzenia
+  const box=document.getElementById('calDayDetail');
+  const hol=isHoliday(ds);
+  const fer=isFerien(ds);
+  const ev=state.events[ds];
+  const lang=state.settings.lang || 'pl';
+  let html=`<strong>${ds.split('-').reverse().join('.')}</strong><br>`;
+  if(hol) html+=`🎉 ${hol[lang]||hol.pl}<br>`;
+  if(fer) html+=`🎒 ${fer[lang]||fer.pl}<br>`;
+  if(ev) html+=`📌 <strong>${ev.title}</strong>${ev.desc?': '+ev.desc:''}<br>`;
+  if(!hol&&!fer&&!ev) html+='<span style="color:var(--muted)">Brak wydarzeń – możesz dodać poniżej</span>';
+  html+=`<br><button type="button" class="btn btn-sm" style="margin-top:8px" onclick="openEventModal('${ds}')">${ev ? '✏️ Edytuj wydarzenie' : '➕ Dodaj wydarzenie'}</button>`;
+  if(ev) html+=` <button type="button" class="btn btn-sm btn-danger" style="margin-top:8px" onclick="deleteEvent('${ds}')">🗑️ Usuń</button>`;
+  if(box){ box.innerHTML=html; box.style.display='block'; }
+  // Od razu otwórz modal do dodania/edycji
+  openEventModal(ds);
+}
+
+function openEventModal(ds){
+  const ev = state.events[ds];
+  document.getElementById('evDate').value = ds || '';
+  document.getElementById('evTitle').value = ev ? (ev.title || '') : '';
+  document.getElementById('evDesc').value = ev ? (ev.desc || '') : '';
+  document.getElementById('evModalTitle').textContent = ev ? 'Edytuj wydarzenie' : 'Nowe wydarzenie';
+  const delBtn = document.getElementById('evDelete');
+  if(delBtn) delBtn.style.display = ev ? 'block' : 'none';
+  document.getElementById('eventModal').classList.add('show');
+}
+
+function deleteEvent(ds){
+  if(!ds) ds = document.getElementById('evDate').value;
+  if(!ds || !state.events[ds]) return;
+  if(!confirm('Usunąć wydarzenie z dnia ' + ds.split('-').reverse().join('.') + '?')) return;
+  delete state.events[ds];
+  saveState();
+  document.getElementById('eventModal').classList.remove('show');
+  const box = document.getElementById('calDayDetail');
+  if(box) box.style.display = 'none';
+  renderCalendar();
+}
+window.openEventModal = openEventModal;
+window.deleteEvent = deleteEvent;
+window.showCalDay = showCalDay;
+
+function applySettingsForm(){
+  const s=state.settings;
+  document.getElementById('setAppName').value=s.appName||'';
+  document.getElementById('setFirstName').value=s.firstName||'';
+  document.getElementById('setLastName').value=s.lastName||'';
+  document.getElementById('setWorkplace').value=s.workplace||'';
+  const sc=document.getElementById('setSunCity'); if(sc) sc.value=s.sunCity||'dresden';
+  document.getElementById('setRate').value=s.rate||15;
+  document.getElementById('setLang').value=s.lang||'pl';
+  document.getElementById('setTheme').value=s.theme||'aero';
+  const rm=document.getElementById('setRemind'); if(rm) rm.checked=!!s.remind;
+  const se=document.getElementById('syncEnabled'); if(se) se.checked=!!s.syncEnabled;
+  const gid=document.getElementById('gdriveClientId'); if(gid) gid.value=s.gdriveClientId||'';
+  document.getElementById('setAutoPause').checked=s.autoPause!==false;
+  document.getElementById('colStart').checked=s.cols.start!==false;
+  document.getElementById('colEnd').checked=s.cols.end!==false;
+  document.getElementById('colPause').checked=s.cols.pause!==false;
+  document.getElementById('colHours').checked=s.cols.hours!==false;
+  document.getElementById('colOt').checked=s.cols.ot!==false;
+  document.getElementById('colDieta').checked=s.cols.dieta!==false;
+}
+
+// Modal day
+let editingDate=null;
+function openDayModal(ds){
+  editingDate=ds;
+  const day=state.days[ds]||{status:'work',start:'06:00',end:'15:30',pause:0,dieta:0,autoPause:true};
+  document.getElementById('modalTitle').textContent = (ds ? ds.split('-').reverse().join('.') : 'Nowy dzień');
+  const dateInput = document.getElementById('editDate');
+  dateInput.value = ds || '';
+  dateInput.removeAttribute('min');
+  dateInput.removeAttribute('max');
+  dateInput.disabled = false;
+  document.getElementById('editStart').value=day.start||'06:00';
+  document.getElementById('editEnd').value=day.end||'15:30';
+  const _p = day.pause??0;
+  document.getElementById('editPause').value=_p;
+  document.getElementById('editPauseH').value=Math.floor(_p/60);
+  document.getElementById('editPauseM').value=_p%60;
+  document.getElementById('editAutoPause').checked=day.autoPause!==false;
+  document.getElementById('editNote').value=day.note||'';
+  document.getElementById('pauseSummary').textContent=formatPause(day.pause??0);
+  document.getElementById('pauseBody').classList.remove('open');
+  document.querySelectorAll('#statusBtns button').forEach(b=>b.classList.toggle('active-status',b.dataset.status===(day.status||'work')));
+  document.querySelectorAll('#dietaBtns button').forEach(b=>b.classList.toggle('active-dieta',+b.dataset.dieta===(day.dieta||0)));
+  document.getElementById('workFields').style.display=(day.status==='work'||!day.status)?'block':'none';
+  document.getElementById('dayModal').classList.add('show');
+}
+function closeModal(){ document.getElementById('dayModal').classList.remove('show'); editingDate=null; }
+
+// ===== ROBUST EVENT BINDING =====
+function goPrevYear(){ state.year--; renderAll(); }
+function goNextYear(){ state.year++; renderAll(); }
+window.goPrevYear = goPrevYear;
+window.goNextYear = goNextYear;
+// goPrevMonth / goNextMonth zdefiniowane wyżej (obsługują widok tygodnia)
+
+function bindAllEvents(){
+  const startBtn = document.getElementById('startBtn');
+  if(startBtn) startBtn.onclick = ()=> document.getElementById('splash').classList.add('hide');
+
+  document.querySelectorAll('.tab-btn').forEach(btn=>{
+    btn.onclick = ()=>{
+      document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = document.getElementById('panel-' + btn.dataset.tab);
+      if(panel) panel.classList.add('active');
+    };
+  });
+
+  // Month / Year navigation – bind every time to be safe
+  const bind = (id, fn) => {
+    const el = document.getElementById(id);
+    if(el){ el.onclick = fn; el.ontouchend = (e)=>{ e.preventDefault(); fn(); }; }
+  };
+  bind('prevYear', goPrevYear);
+  bind('nextYear', goNextYear);
+  bind('prevMonth', goPrevMonth);
+  bind('nextMonth', goNextMonth);
+  bind('calPrev', goPrevMonth);
+  bind('calNext', goNextMonth);
+
+  const addBtn = document.getElementById('addDayBtn');
+  if(addBtn) addBtn.onclick = ()=> openDayModal(toLocalDateStr(state.year, state.month, 1));
+}
+
+// Call once now
+bindAllEvents();
+
+
+document.getElementById('pauseToggle').onclick=()=>{
+  document.getElementById('pauseBody').classList.toggle('open');
+};
+function syncPauseFromHM(){
+  const h=Math.max(0,+document.getElementById('editPauseH').value||0);
+  const m=Math.min(59,Math.max(0,+document.getElementById('editPauseM').value||0));
+  const total=h*60+m;
+  document.getElementById('editPause').value=total;
+  document.getElementById('pauseSummary').textContent=formatPause(total);
+}
+document.getElementById('editPauseH').oninput=syncPauseFromHM;
+document.getElementById('editPauseM').oninput=syncPauseFromHM;
+
+document.querySelectorAll('#statusBtns button').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('#statusBtns button').forEach(x=>x.classList.remove('active-status'));
+    b.classList.add('active-status');
+    document.getElementById('workFields').style.display=b.dataset.status==='work'?'block':'none';
+  };
+});
+document.querySelectorAll('#dietaBtns button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#dietaBtns button').forEach(x=>x.classList.remove('active-dieta'));b.classList.add('active-dieta');};
+});
+
+document.getElementById('cancelDayBtn').onclick=closeModal;
+document.getElementById('saveDayBtn').onclick=()=>{
+  const ds=document.getElementById('editDate').value;
+  if(!ds) return alert('Brak daty');
+  const status=document.querySelector('#statusBtns .active-status')?.dataset.status||'work';
+  const dieta=+document.querySelector('#dietaBtns .active-dieta')?.dataset.dieta||0;
+  const day={
+    status, start:document.getElementById('editStart').value, end:document.getElementById('editEnd').value,
+    pause:+document.getElementById('editPause').value||0, autoPause:document.getElementById('editAutoPause').checked,
+    dieta, note:document.getElementById('editNote').value
+  };
+  if(status!=='work'){ day.start=day.end=''; day.pause=0; }
+  state.days[ds]=day;
+  if(editingDate&&editingDate!==ds) delete state.days[editingDate];
+  // Przełącz widok na miesiąc zapisanego dnia
+  const parts = ds.split('-');
+  state.year = parseInt(parts[0], 10);
+  state.month = parseInt(parts[1], 10) - 1;
+  saveState(); closeModal(); renderAll();
+};
+document.getElementById('deleteDayBtn').onclick=()=>{
+  if(editingDate&&confirm('Usunąć?')){ delete state.days[editingDate]; saveState(); closeModal(); renderAll(); }
+};
+
+document.getElementById('saveSettingsBtn').onclick=()=>{
+  state.settings.appName=document.getElementById('setAppName').value||'Ewidencja czasu';
+  state.settings.firstName=document.getElementById('setFirstName').value;
+  state.settings.lastName=document.getElementById('setLastName').value;
+  state.settings.workplace=document.getElementById('setWorkplace').value;
+  state.settings.sunCity=document.getElementById('setSunCity')?.value||'dresden';
+  state.settings.rate=parseFloat(document.getElementById('setRate').value)||0;
+  state.settings.lang=document.getElementById('setLang').value;
+  state.settings.theme=document.getElementById('setTheme').value;
+  state.settings.remind=document.getElementById('setRemind')?.checked||false;
+  if(state.settings.remind) requestNotifyPermission();
+  state.settings.syncEnabled=!!document.getElementById('syncEnabled')?.checked;
+  const gid=document.getElementById('gdriveClientId')?.value?.trim();
+  if(gid) state.settings.gdriveClientId=gid;
+  state.settings.autoPause=document.getElementById('setAutoPause').checked;
+  state.settings.cols={
+    start:document.getElementById('colStart').checked,
+    end:document.getElementById('colEnd').checked,
+    pause:document.getElementById('colPause').checked,
+    hours:document.getElementById('colHours').checked,
+    ot:document.getElementById('colOt').checked,
+    dieta:document.getElementById('colDieta').checked
+  };
+  saveState(); renderAll(); alert(t('save')+' ✓');
+};
+document.getElementById('clearDataBtn').onclick=()=>{
+  if(confirm('Usunąć wszystkie wpisy?')){ state.days={}; saveState(); renderAll(); }
+};
+
+function statusToExport(st){
+  return {work:'Praca',urlaub:'Urlop',krank:'Chorobowe',fza:'FZA',wolny:'Wolny'}[st]||st||'Praca';
+}
+function statusFromImport(s){
+  if(!s) return 'work';
+  const t=String(s).trim().toLowerCase();
+  if(t==='praca'||t==='work'||t==='arbeit') return 'work';
+  if(t==='urlop'||t==='urlaub'||t==='vacation') return 'urlaub';
+  if(t==='chorobowe'||t==='krank'||t==='sick') return 'krank';
+  if(t==='fza'||t==='wolne za nadgodziny') return 'fza';
+  if(t==='wolny'||t==='frei'||t==='free'||t==='dzień wolny') return 'wolny';
+  return 'work';
+}
+function parsePauseToMin(v){
+  if(v===null||v===undefined||v==='') return 0;
+  if(typeof v==='number') return Math.round(v>24?v:v); // already minutes or hours
+  const s=String(v).trim().replace(',','.').replace('′','').replace("'",'');
+  if(s.indexOf(':')>=0){
+    const p=s.split(':'); return (parseInt(p[0],10)||0)*60+(parseInt(p[1],10)||0);
+  }
+  const n=parseFloat(s); return isNaN(n)?0:Math.round(n);
+}
+function normalizeDateCell(v){
+  if(v===null||v===undefined||v==='') return null;
+  if(typeof v==='number' && typeof XLSX!=='undefined' && XLSX.SSF){
+    try{
+      const d=XLSX.SSF.parse_date_code(v);
+      if(d) return d.y+'-'+pad(d.m)+'-'+pad(d.d);
+    }catch(e){}
+  }
+  const s=String(v).trim();
+  // YYYY-MM-DD
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return m[1]+'-'+pad(+m[2])+'-'+pad(+m[3]);
+  // DD.MM.YYYY
+  m=s.match(/^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})/);
+  if(m) return m[3]+'-'+pad(+m[2])+'-'+pad(+m[1]);
+  return null;
+}
+function normalizeTimeCell(v){
+  if(v===null||v===undefined||v==='') return '';
+  if(typeof v==='number'){
+    // excel fraction of day
+    const total=Math.round(v*24*60);
+    return pad(Math.floor(total/60)%24)+':'+pad(total%60);
+  }
+  const s=String(v).trim().replace('.',':');
+  const m=s.match(/(\d{1,2}):(\d{2})/);
+  if(m) return pad(+m[1])+':'+m[2];
+  return s;
+}
+
+function doExportExcel(){
+  const rows=[['Data','Dzień','Status','Start','Koniec','Przerwa_min','Godziny','Nadgodziny','Dieta','Notatka','Święto']];
+  const sorted=Object.keys(state.days||{}).sort();
+  for(const ds of sorted){
+    const day=state.days[ds], c=calcDay(day);
+    const d=new Date(ds+'T12:00:00');
+    const st=statusToExport(day.status);
+    const hol=isHoliday(ds);
+    const lang=state.settings.lang||'pl';
+    rows.push([
+      ds,
+      (DAY_FULL[lang]||DAY_FULL.pl)[d.getDay()],
+      st,
+      day.start||'',
+      day.end||'',
+      c.pauseUsed??day.pause??0,
+      formatHours(c.hours),
+      formatHours(c.ot),
+      c.dieta,
+      day.note||'',
+      hol?(hol[lang]||hol.pl||''):''
+    ]);
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  // szersze kolumny
+  ws['!cols']=[{wch:12},{wch:12},{wch:12},{wch:8},{wch:8},{wch:10},{wch:8},{wch:10},{wch:8},{wch:20},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ewidencja');
+  // settings sheet for restore of rate etc (optional)
+  const setRows=[
+    ['Pole','Wartość'],
+    ['firstName', state.settings.firstName||''],
+    ['lastName', state.settings.lastName||''],
+    ['workplace', state.settings.workplace||''],
+    ['rate', state.settings.rate||0],
+    ['appName', state.settings.appName||'']
+  ];
+  const ws2=XLSX.utils.aoa_to_sheet(setRows);
+  XLSX.utils.book_append_sheet(wb,ws2,'Ustawienia');
+  XLSX.writeFile(wb,'Ewidencja_'+state.year+'.xlsx');
+}
+
+function doImportExcel(file){
+  if(typeof XLSX==='undefined'){ alert('Biblioteka Excel niezaładowana (brak sieci przy pierwszym starcie).'); return; }
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=new Uint8Array(ev.target.result);
+      const wb=XLSX.read(data,{type:'array', cellDates:true});
+      const sheetName=wb.SheetNames.find(n=>/ewidenc/i.test(n))||wb.SheetNames[0];
+      const ws=wb.Sheets[sheetName];
+      const rows=XLSX.utils.sheet_to_json(ws,{header:1, defval:''});
+      if(!rows.length){ alert('Pusty plik Excel'); return; }
+      // map header
+      const header=rows[0].map(h=>String(h||'').trim().toLowerCase());
+      const idx={};
+      header.forEach((h,i)=>{
+        if(/data|date/.test(h)) idx.date=i;
+        else if(/status|status/.test(h)) idx.status=i;
+        else if(/start|pocz|begin/.test(h)) idx.start=i;
+        else if(/koniec|end|ende/.test(h)) idx.end=i;
+        else if(/przerwa|pause/.test(h)) idx.pause=i;
+        else if(/dieta|spesen/.test(h)) idx.dieta=i;
+        else if(/notat|note|bemerk/.test(h)) idx.note=i;
+      });
+      if(idx.date===undefined){ alert('Brak kolumny Data w Excelu'); return; }
+      const pending=[];
+      for(let r=1;r<rows.length;r++){
+        const row=rows[r];
+        if(!row||!row.length) continue;
+        const ds=normalizeDateCell(row[idx.date]);
+        if(!ds) continue;
+        const st=statusFromImport(idx.status!==undefined?row[idx.status]:'Praca');
+        const day={
+          status: st,
+          start: idx.start!==undefined?normalizeTimeCell(row[idx.start]):'',
+          end: idx.end!==undefined?normalizeTimeCell(row[idx.end]):'',
+          pause: idx.pause!==undefined?parsePauseToMin(row[idx.pause]):0,
+          autoPause: true,
+          dieta: idx.dieta!==undefined?(parseFloat(String(row[idx.dieta]).replace(',','.'))||0):0,
+          note: idx.note!==undefined?String(row[idx.note]||''):''
+        };
+        if(st!=='work'){ day.start=''; day.end=''; day.pause=0; }
+        pending.push({ds, day});
+      }
+      if(!pending.length){ alert('Brak rozpoznanych wierszy z datą.'); return; }
+      let overlap=0;
+      for(const p of pending){ if(state.days && state.days[p.ds]) overlap++; }
+      let msg='Wczytać '+pending.length+' dni z Excela?';
+      if(overlap>0) msg+='\n\nUwaga: '+overlap+' dni już istnieje w aplikacji i zostanie NADPISANE.';
+      if(!confirm(msg)) return;
+      const newDays=Object.assign({}, state.days||{});
+      let imported=0;
+      for(const p of pending){ newDays[p.ds]=p.day; imported++; }
+      // optional settings sheet
+      const setSheet=wb.SheetNames.find(n=>/ustawien|settings/i.test(n));
+      if(setSheet){
+        const srows=XLSX.utils.sheet_to_json(wb.Sheets[setSheet],{header:1, defval:''});
+        for(let i=1;i<srows.length;i++){
+          const key=String(srows[i][0]||'').trim();
+          const val=srows[i][1];
+          if(key==='firstName') state.settings.firstName=String(val||'');
+          if(key==='lastName') state.settings.lastName=String(val||'');
+          if(key==='workplace') state.settings.workplace=String(val||'');
+          if(key==='rate') state.settings.rate=parseFloat(val)||state.settings.rate;
+          if(key==='appName') state.settings.appName=String(val||state.settings.appName);
+        }
+      }
+      state.days=newDays;
+      saveState();
+      renderAll();
+      alert('Zaimportowano wpisów: '+imported+'. Dane z Excela wczytane.');
+    }catch(err){
+      console.error(err);
+      alert('Błąd importu Excel: '+(err.message||err));
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+document.getElementById('exportExcelBtn')&&(document.getElementById('exportExcelBtn').onclick=doExportExcel);
+document.getElementById('setExportExcel')&&(document.getElementById('setExportExcel').onclick=doExportExcel);
+document.getElementById('setImportExcel')&&(document.getElementById('setImportExcel').onclick=()=>document.getElementById('importExcelFile').click());
+const _ief=document.getElementById('importExcelFile');
+if(_ief){ _ief.onchange=e=>{ const f=e.target.files[0]; if(f) doImportExcel(f); e.target.value=''; }; }
+
+document.getElementById('exportJsonBtn')&&(document.getElementById('exportJsonBtn').onclick=()=>{
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='ewidencja_'+state.year+'.json'; a.click();
+});
+document.getElementById('setExportJson')&&(document.getElementById('setExportJson').onclick=document.getElementById('exportJsonBtn')?.onclick);
+document.getElementById('importJsonBtn')&&(document.getElementById('importJsonBtn').onclick=()=>document.getElementById('importFile').click());
+document.getElementById('setImport')&&(document.getElementById('setImport').onclick=()=>document.getElementById('importFile').click());
+document.getElementById('importFile')&&(document.getElementById('importFile').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.days){ state={...state,...data}; saveState(); renderAll(); alert('JSON wczytany ✓'); }
+      else if(data.v>=5 && data.profilesDB){ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); 
+document.getElementById('btnTodayDay')?.addEventListener('click', ()=>{
+  const n=new Date();
+  state.year=n.getFullYear();
+  state.month=n.getMonth();
+  const ds=toLocalDateStr(n.getFullYear(), n.getMonth(), n.getDate());
+  renderAll();
+  openDayModal(ds);
+});
+
+function doExcelTemplate(){
+  const y=state.year, m=state.month;
+  const lang=state.settings.lang||'pl';
+  const rows=[['Data','Dzień','Status','Start','Koniec','Przerwa_min','Godziny','Nadgodziny','Dieta','Notatka','Święto']];
+  for(const ds of getMonthDays(y,m)){
+    const d=new Date(ds+'T12:00:00');
+    const hol=isHoliday(ds);
+    const existing=state.days[ds];
+    if(existing){
+      const c=calcDay(existing);
+      rows.push([ds,(DAY_FULL[lang]||DAY_FULL.pl)[d.getDay()],statusToExport(existing.status),existing.start||'',existing.end||'',c.pauseUsed??existing.pause??0,formatHours(c.hours),formatHours(c.ot),c.dieta,existing.note||'',hol?(hol[lang]||hol.pl||''):'']);
+    } else {
+      const isW=d.getDay()!==0&&d.getDay()!==6&&!hol;
+      rows.push([ds,(DAY_FULL[lang]||DAY_FULL.pl)[d.getDay()],isW?'Praca':'',isW?'06:00':'',isW?'15:30':'',isW?30:'','','',isW?0:'','',hol?(hol[lang]||hol.pl||''):'']);
+    }
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:12},{wch:12},{wch:8},{wch:8},{wch:10},{wch:8},{wch:10},{wch:8},{wch:20},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ewidencja');
+  const setRows=[['Pole','Wartość'],['firstName',state.settings.firstName||''],['lastName',state.settings.lastName||''],['workplace',state.settings.workplace||''],['rate',state.settings.rate||0],['appName',state.settings.appName||'']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(setRows),'Ustawienia');
+  XLSX.writeFile(wb,'Szablon_'+(MONTHS[lang]||MONTHS.pl)[m]+'_'+y+'.xlsx');
+}
+document.getElementById('setExcelTemplate')?.addEventListener('click', doExcelTemplate);
+
+loadState(); renderAll(); alert('Backup profili wczytany ✓'); }
+      else alert('Nieznany format JSON');
+    }catch(err){ alert('Błąd pliku JSON'); }
+  };
+  r.readAsText(f);
+  e.target.value='';
+});
+
+
+// Calendar view switch
+document.getElementById('calViewMonth').onclick = () => setCalView('month');
+document.getElementById('calViewWeek').onclick = () => setCalView('week');
+
+// Events calendar
+document.getElementById('calAddEvent').onclick=()=>{
+  openEventModal(toLocalDateStr(state.year, state.month, 1));
+};
+document.getElementById('evCancel').onclick=()=>document.getElementById('eventModal').classList.remove('show');
+document.getElementById('evSave').onclick=()=>{
+  const ds=document.getElementById('evDate').value;
+  const title=document.getElementById('evTitle').value.trim();
+  if(!ds||!title) return alert('Data i tytuł są wymagane');
+  state.events[ds]={title, desc:document.getElementById('evDesc').value.trim()};
+  saveState();
+  document.getElementById('eventModal').classList.remove('show');
+  renderCalendar();
+  // Odśwież panel szczegółów
+  const box=document.getElementById('calDayDetail');
+  if(box && box.style.display!=='none') showCalDay(ds);
+};
+document.getElementById('evDelete').onclick=()=>{
+  deleteEvent(document.getElementById('evDate').value);
+};
+
+
+// ===== NOWE FUNKCJE: szablony, kopiuj, PDF, tydzień, przypomnienia =====
+
+function getPrevWorkdayStr(fromDs){
+  const d = fromDs ? new Date(fromDs+'T12:00:00') : new Date();
+  for(let i=1;i<=14;i++){
+    const p = new Date(d); p.setDate(d.getDate()-i);
+    const ds = toLocalDateStr(p.getFullYear(), p.getMonth(), p.getDate());
+    const wd = p.getDay();
+    if(wd===0||wd===6) continue;
+    if(isHoliday(ds)) continue;
+    return ds;
+  }
+  return null;
+}
+
+function copyYesterday(){
+  const cur = document.getElementById('editDate').value;
+  const prev = getPrevWorkdayStr(cur);
+  if(!prev){ alert('Brak poprzedniego dnia roboczego'); return; }
+  const day = state.days[prev];
+  if(!day){ alert('Brak wpisu dla '+prev.split('-').reverse().join('.')); return; }
+  // apply
+  document.querySelectorAll('#statusBtns button').forEach(b=>{
+    b.classList.toggle('active-status', b.dataset.status===(day.status||'work'));
+  });
+  document.getElementById('workFields').style.display=(day.status==='work'||!day.status)?'block':'none';
+  document.getElementById('editStart').value = day.start||'06:00';
+  document.getElementById('editEnd').value = day.end||'15:30';
+  const _p = day.pause||0;
+  document.getElementById('editPause').value=_p;
+  document.getElementById('editPauseH').value=Math.floor(_p/60);
+  document.getElementById('editPauseM').value=_p%60;
+  document.getElementById('pauseSummary').textContent=formatPause(_p);
+  document.getElementById('editAutoPause').checked = day.autoPause!==false;
+  document.querySelectorAll('#dietaBtns button').forEach(b=>{
+    b.classList.toggle('active-dieta', +b.dataset.dieta===(day.dieta||0));
+  });
+  if(day.note) document.getElementById('editNote').value = day.note;
+}
+
+function applyShiftTemplate(range){
+  const [a,b] = range.split('-');
+  document.getElementById('editStart').value = a;
+  document.getElementById('editEnd').value = b;
+  // select work status
+  document.querySelectorAll('#statusBtns button').forEach(x=>{
+    x.classList.toggle('active-status', x.dataset.status==='work');
+  });
+  document.getElementById('workFields').style.display='block';
+}
+
+function getWeekRange(y,m,dayNum){
+  const d = new Date(y,m,dayNum||1);
+  const wd = d.getDay();
+  const mondayOffset = wd===0 ? -6 : 1-wd;
+  const mon = new Date(d); mon.setDate(d.getDate()+mondayOffset);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return {mon,sun};
+}
+
+function renderWeekBar(){
+  const el = document.getElementById('weekBar');
+  if(!el) return;
+  const today = new Date();
+  // show current viewed month's "this week" relative to today if same month, else first week of month
+  let refDay = 1;
+  if(today.getFullYear()===state.year && today.getMonth()===state.month) refDay = today.getDate();
+  const {mon,sun} = getWeekRange(state.year, state.month, refDay);
+  let hours=0, ot=0, days=0;
+  for(let i=0;i<7;i++){
+    const d=new Date(mon); d.setDate(mon.getDate()+i);
+    const ds=toLocalDateStr(d.getFullYear(),d.getMonth(),d.getDate());
+    const day=state.days[ds];
+    if(!day) continue;
+    const c=calcDay(day);
+    hours+=c.hours; ot+=c.ot; days++;
+  }
+  const fmt = (d)=>pad(d.getDate())+'.'+pad(d.getMonth()+1);
+  el.innerHTML = `📅 Tydzień ${fmt(mon)}–${fmt(sun)}: <strong>${formatHours(hours)}</strong> · Nadg. ${formatHours(Math.max(0,ot))} · Dni: ${days}`;
+}
+
+function exportMonthPdf(){
+  const y=state.year, m=state.month;
+  const lang=state.settings.lang||'pl';
+  const monthName=(MONTHS[lang]||MONTHS.pl)[m];
+  let rows='';
+  let th=0,tot=0,td=0;
+  for(const ds of getMonthDays(y,m)){
+    const day=state.days[ds];
+    if(!day) continue;
+    const c=calcDay(day);
+    th+=c.hours; tot+=Math.max(0,c.ot); td+=c.dieta;
+    const st = day.status||'work';
+    rows += `<tr>
+      <td>${ds.split('-').reverse().join('.')}</td>
+      <td>${st}</td>
+      <td>${day.start||'–'}</td>
+      <td>${day.end||'–'}</td>
+      <td>${formatPause(c.pauseUsed||0)}</td>
+      <td>${formatHours(c.hours)}</td>
+      <td>${formatHours(c.ot)}</td>
+      <td>${c.dieta} €</td>
+    </tr>`;
+  }
+  const rate=state.settings.rate||0;
+  const money=th*rate;
+  const name=[state.settings.firstName,state.settings.lastName].filter(Boolean).join(' ');
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ewidencja ${monthName} ${y}</title>
+  <style>
+    body{font-family:Segoe UI,Arial,sans-serif;padding:24px;color:#111}
+    h1{font-size:1.3rem;margin:0 0 4px}
+    .meta{color:#555;margin-bottom:16px;font-size:0.9rem}
+    table{border-collapse:collapse;width:100%;font-size:0.85rem}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}
+    th{background:#eee}
+    .sum{margin-top:16px;font-size:0.95rem}
+    @media print{button{display:none}}
+  </style></head><body>
+  <button onclick="window.print()" style="padding:8px 16px;margin-bottom:12px">Drukuj / Zapisz PDF</button>
+  <h1>Ewidencja czasu – ${monthName} ${y}</h1>
+  <div class="meta">${name||''} ${state.settings.workplace?('· '+state.settings.workplace):''} · Stawka: ${rate} €/h</div>
+  <table>
+    <thead><tr><th>Data</th><th>Status</th><th>Start</th><th>Koniec</th><th>Przerwa</th><th>Godz.</th><th>Nadg.</th><th>Dieta</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="8">Brak wpisów</td></tr>'}</tbody>
+  </table>
+  <div class="sum">
+    <p><strong>Suma godzin:</strong> ${formatHours(th)} &nbsp; <strong>Nadgodziny:</strong> ${formatHours(tot)}</p>
+    <p><strong>Zarobek:</strong> ${formatMoney(money)} &nbsp; <strong>Diety:</strong> ${formatMoney(td)} &nbsp; <strong>Razem:</strong> ${formatMoney(money+td)}</p>
+  </div>
+  <p style="margin-top:24px;color:#888;font-size:0.75rem">Autor: Cichocki Tomasz · wygenerowano ${new Date().toLocaleString('pl-PL')}</p>
+  </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html); w.document.close();
+}
+
+function checkReminder(){
+  if(!state.settings.remind) return;
+  const prev=getPrevWorkdayStr();
+  if(!prev) return;
+  if(state.days[prev]) return;
+  const label=prev.split('-').reverse().join('.');
+  const msg='Brak wpisu za ostatni dzień roboczy: '+label;
+  if(window.Notification && Notification.permission==='granted'){
+    try{ new Notification('Ewidencja czasu',{body:msg}); }catch(e){}
+  }
+  // soft banner
+  setTimeout(()=>{
+    if(confirm(msg+'\n\nOtworzyć edycję tego dnia?')) openDayModal(prev);
+  }, 800);
+}
+
+function requestNotifyPermission(){
+  if(window.Notification && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+
+function doBackupJson(){
+  const data=JSON.stringify(state,null,2);
+  const blob=new Blob([data],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='ewidencja-backup-'+toLocalDateStr(new Date().getFullYear(),new Date().getMonth(),new Date().getDate())+'.json';
+  a.click();
+}
+
+function maybeWeeklyBackup(){
+  const key='ewidencja_last_backup';
+  const last=localStorage.getItem(key);
+  const now=Date.now();
+  if(last && (now-+last)<6*24*3600*1000) return; // co ~7 dni
+  // ciche przypomnienie raz
+  if(state.settings && Object.keys(state.days||{}).length>0){
+    setTimeout(()=>{
+      if(confirm('Minął tydzień od ostatniego backupu. Pobrać kopię JSON?')){
+        doBackupJson();
+        localStorage.setItem(key,String(now));
+      } else {
+        localStorage.setItem(key,String(now));
+      }
+    }, 1200);
+  }
+}
+
+
+
+
+document.getElementById('profileSelect')?.addEventListener('change', (e)=> switchProfile(e.target.value));
+document.getElementById('profileAddBtn')?.addEventListener('click', addProfile);
+document.getElementById('profileRenameBtn')?.addEventListener('click', renameProfile);
+document.getElementById('profileDeleteBtn')?.addEventListener('click', deleteProfile);
+
+
+document.getElementById('syncCopyPackBtn')?.addEventListener('click', ()=> syncCopyPack());
+document.getElementById('syncPastePackBtn')?.addEventListener('click', ()=> syncPastePack());
+
+// old create
+document.getElementById('syncCreateBtn')?.addEventListener('click', ()=> cloudCreate().catch(()=>{}));
+document.getElementById('syncPushBtn')?.addEventListener('click', ()=> cloudPush(false).catch(()=>{}));
+document.getElementById('syncPullBtn')?.addEventListener('click', ()=> cloudPull(false).catch(()=>{}));
+
+document.getElementById('btnCopyYesterday')?.addEventListener('click', copyYesterday);
+document.querySelectorAll('#shiftTemplates button').forEach(b=>{
+  b.addEventListener('click', ()=> applyShiftTemplate(b.dataset.shift));
+});
+document.getElementById('setExportPdf')?.addEventListener('click', exportMonthPdf);
+document.getElementById('setBackupNow')?.addEventListener('click', ()=>{ doBackupJson(); localStorage.setItem('ewidencja_last_backup', String(Date.now())); });
+
+
+document.getElementById('btnTodayDay')?.addEventListener('click', ()=>{
+  const n=new Date();
+  state.year=n.getFullYear();
+  state.month=n.getMonth();
+  const ds=toLocalDateStr(n.getFullYear(), n.getMonth(), n.getDate());
+  renderAll();
+  openDayModal(ds);
+});
+
+function doExcelTemplate(){
+  const y=state.year, m=state.month;
+  const lang=state.settings.lang||'pl';
+  const rows=[['Data','Dzień','Status','Start','Koniec','Przerwa_min','Godziny','Nadgodziny','Dieta','Notatka','Święto']];
+  for(const ds of getMonthDays(y,m)){
+    const d=new Date(ds+'T12:00:00');
+    const hol=isHoliday(ds);
+    const existing=state.days[ds];
+    if(existing){
+      const c=calcDay(existing);
+      rows.push([ds,(DAY_FULL[lang]||DAY_FULL.pl)[d.getDay()],statusToExport(existing.status),existing.start||'',existing.end||'',c.pauseUsed??existing.pause??0,formatHours(c.hours),formatHours(c.ot),c.dieta,existing.note||'',hol?(hol[lang]||hol.pl||''):'']);
+    } else {
+      const isW=d.getDay()!==0&&d.getDay()!==6&&!hol;
+      rows.push([ds,(DAY_FULL[lang]||DAY_FULL.pl)[d.getDay()],isW?'Praca':'',isW?'06:00':'',isW?'15:30':'',isW?30:'','','',isW?0:'','',hol?(hol[lang]||hol.pl||''):'']);
+    }
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:12},{wch:12},{wch:8},{wch:8},{wch:10},{wch:8},{wch:10},{wch:8},{wch:20},{wch:18}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Ewidencja');
+  const setRows=[['Pole','Wartość'],['firstName',state.settings.firstName||''],['lastName',state.settings.lastName||''],['workplace',state.settings.workplace||''],['rate',state.settings.rate||0],['appName',state.settings.appName||'']];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(setRows),'Ustawienia');
+  XLSX.writeFile(wb,'Szablon_'+(MONTHS[lang]||MONTHS.pl)[m]+'_'+y+'.xlsx');
+}
+document.getElementById('setExcelTemplate')?.addEventListener('click', doExcelTemplate);
+
+loadState();
+if(!localStorage.getItem(STORAGE_KEY)){
+  const n=new Date(); state.year=n.getFullYear(); state.month=n.getMonth();
+}
+renderAll();
+try{renderProfileSelect();}catch(e){}
+try{checkReminder();}catch(e){}
+try{
+  // Auto-pull z Drive po starcie wymaga ponownego logowania Google (token nie jest trwaly)
+
+}catch(e){}
+try{maybeWeeklyBackup();}catch(e){}
+
+bindAllEvents();  // ponowne bindowanie po renderze
+if('serviceWorker' in navigator){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js').then(function(r){ console.log('SW OK', r.scope); }).catch(function(e){ console.log('SW fail', e); });
+  });
+}
+</script>
+</body>
+</html>
