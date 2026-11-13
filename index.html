@@ -324,17 +324,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
       <p class="subtitle" id="workplaceLabel" style="color:var(--muted)">Miejsce pracy</p>
       <p id="homeTodayDate" style="font-size:0.9rem;color:var(--muted);margin-top:4px"></p>
 
-      <div class="home-day-info">
-        <div class="info-item">
-          <div class="lab"><span class="ico">🌅</span> Wschód słońca</div>
-          <div class="val" id="homeSunrise">–:–</div>
-        </div>
-        <div class="info-item">
-          <div class="lab"><span class="ico">🌇</span> Zachód słońca</div>
-          <div class="val" id="homeSunset">–:–</div>
-        </div>
-      </div>
-
       <div class="home-imieniny">
         <div class="lab">🎉 Imieniny dziś</div>
         <div class="val" id="homeImieniny">–</div>
@@ -434,14 +423,6 @@ input[type="time"]::-webkit-calendar-picker-indicator {
         <div class="form-group"><label data-i18n="first_name">Imię</label><input type="text" id="setFirstName"></div>
         <div class="form-group"><label data-i18n="last_name">Nazwisko</label><input type="text" id="setLastName"></div>
         <div class="form-group"><label data-i18n="workplace">Miejsce pracy</label><input type="text" id="setWorkplace"></div>
-        <div class="form-group"><label>Miasto (wschód/zachód słońca)</label>
-          <select id="setSunCity" style="width:100%;padding:10px;background:rgba(0,20,40,0.6);border:1px solid var(--border);border-radius:8px;color:var(--text)">
-            <option value="dresden">Drezno (Dresden)</option>
-            <option value="leipzig">Lipsk (Leipzig)</option>
-            <option value="chemnitz">Chemnitz</option>
-            <option value="zwickau">Zwickau</option>
-          </select>
-        </div>
         <div class="form-group"><label data-i18n="rate">Stawka (€/h)</label><input type="number" id="setRate" step="0.01" value="15"></div>
       </div>
       <div class="settings-section">
@@ -1717,16 +1698,6 @@ function renderHome(){
   const elDate = document.getElementById('homeTodayDate');
   if(elDate) elDate.textContent = dayName + ', ' + dateStr;
 
-  // Wschód / zachód (wybrane miasto Saksonii)
-  try{
-    const city = getSunCoords();
-    const sun = calcSunTimes(now, city.lat, city.lon);
-    const elR = document.getElementById('homeSunrise');
-    const elS = document.getElementById('homeSunset');
-    if(elR) elR.textContent = sun.rise;
-    if(elS) elS.textContent = sun.set;
-  }catch(e){}
-
   // Imieniny
   const elIm = document.getElementById('homeImieniny');
   if(elIm) elIm.textContent = getImieniny(now);
@@ -2080,7 +2051,6 @@ function applySettingsForm(){
   document.getElementById('setFirstName').value=s.firstName||'';
   document.getElementById('setLastName').value=s.lastName||'';
   document.getElementById('setWorkplace').value=s.workplace||'';
-  const sc=document.getElementById('setSunCity'); if(sc) sc.value=s.sunCity||'dresden';
   document.getElementById('setRate').value=s.rate||15;
   document.getElementById('setLang').value=s.lang||'pl';
   document.getElementById('setTheme').value=s.theme||'aero';
@@ -2218,7 +2188,6 @@ document.getElementById('saveSettingsBtn').onclick=()=>{
   state.settings.firstName=document.getElementById('setFirstName').value;
   state.settings.lastName=document.getElementById('setLastName').value;
   state.settings.workplace=document.getElementById('setWorkplace').value;
-  state.settings.sunCity=document.getElementById('setSunCity')?.value||'dresden';
   state.settings.rate=parseFloat(document.getElementById('setRate').value)||0;
   state.settings.lang=document.getElementById('setLang').value;
   state.settings.theme=document.getElementById('setTheme').value;

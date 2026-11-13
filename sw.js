@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ewidencja-v9';
+const CACHE_NAME = 'ewidencja-v10';
 const ASSETS = [
   './',
   './index.html',
